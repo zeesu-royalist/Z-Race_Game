@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '../store/gameStore';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 // Target standard sports car length in meters (proportionally balanced to city road lanes)
 const TARGET_CAR_LENGTH = 3.9;
@@ -134,7 +135,9 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
   const rearWheelsRef = useRef([]);
 
   const adapted = useMemo(() => {
-    const root = scene.clone(true);
+    // Universal clone using SkeletonUtils: ensures skinned mesh models (like 2026 Lamborghini Fenomeno)
+    // clone their skeleton bones and bind matrices properly to the active scene graph
+    const root = SkeletonUtils.clone(scene);
     frontWheelsRef.current = [];
     rearWheelsRef.current = [];
 
@@ -152,6 +155,8 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
       if (node.isMesh) {
         node.castShadow = true;
         node.receiveShadow = true;
+        // Never prematurely frustum-cull car body meshes/skins
+        node.frustumCulled = false;
 
         if (node.material) {
           const mats = Array.isArray(node.material) ? node.material : [node.material];
@@ -164,9 +169,23 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
 
             const matName = (mat.name || '').toLowerCase();
 
+            // 2026 Lamborghini Fenomeno fix:
+            // Ensure radiant metallic pearl / golden yellow finish and clearcoat
+            if (fileName.includes('fenomeno') || fileName.includes('lamborghini_fenomeno')) {
+              if (mat.name === 'Paint' || matName.includes('paint')) {
+                mat.roughness = 0.18;
+                mat.metalness = 0.55;
+                if ('clearcoat' in mat) mat.clearcoat = 1.0;
+                if ('clearcoatRoughness' in mat) mat.clearcoatRoughness = 0.08;
+              } else if (mat.name === 'Coloured') {
+                mat.roughness = 0.35;
+                mat.metalness = 0.3;
+              }
+            }
+
             // Ferrari 488 Pista Widebody fix:
             // "GREEN_car_paint" was exported with baseColor [0,0,0,1]
-            if (mat.name === 'GREEN_car_paint' || matName.includes('green_car_paint')) {
+            else if (mat.name === 'GREEN_car_paint' || matName.includes('green_car_paint')) {
               mat.color.set('#15803d'); // Deep Emerald / British Racing Green
               mat.roughness = 0.2;
               mat.metalness = 0.5;
@@ -271,7 +290,7 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     const center = new THREE.Vector3();
     box.getCenter(center);
 
-    // 5. Scale Normalization (Normalized to standard 4.60m length)
+    // 5. Scale Normalization (Normalized to standard 3.90m length)
     const scaleMultiplier = TARGET_CAR_LENGTH / size.z;
 
     // 6. Perfect Center & Tire Alignment:
@@ -288,17 +307,24 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     wrapper.scale.setScalar(scaleMultiplier);
     wrapper.updateMatrixWorld(true);
 
-    // 8. Find and Register Wheels for Steering & Rolling
+    // 8. Find and Register Wheels for Steering & Rolling (supports meshes & rigged bone armatures)
     root.traverse((node) => {
       const name = (node.name || '').toLowerCase();
-      const isWheelMesh = (name.includes('wheel') || name.includes('tire') || name.includes('tyre') || name.includes('rim')) && node.isMesh;
-      if (isWheelMesh) {
-        // In oriented local space, front wheels have positive Z
-        const wBox = new THREE.Box3().setFromObject(node);
-        const wCenter = new THREE.Vector3();
-        wBox.getCenter(wCenter);
+      const isWheelNode =
+        ((name.includes('wheel') || name.includes('tire') || name.includes('tyre') || name.includes('rim')) &&
+          (node.isMesh || node.isBone)) &&
+        !name.includes('steering');
 
-        const isFront = wCenter.z > 0 || name.includes('front') || name.includes('fl') || name.includes('fr');
+      if (isWheelNode) {
+        const pos = new THREE.Vector3();
+        if (node.isMesh) {
+          const wBox = new THREE.Box3().setFromObject(node);
+          wBox.getCenter(pos);
+        } else {
+          node.getWorldPosition(pos);
+        }
+
+        const isFront = pos.z > 0 || name.includes('front') || name.includes('fl') || name.includes('fr');
         if (isFront) {
           frontWheelsRef.current.push(node);
         } else {
