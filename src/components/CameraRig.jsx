@@ -1,9 +1,25 @@
 import React, { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../store/gameStore';
 import { inputState } from './Car';
+
+// 3 Dedicated Camera Angles:
+// 1st: Initial Close (jaisa abhi hai)
+// 2nd: Thoda Dur
+// 3rd: Thoda Uper Se Thoda Dur (High Angle)
+export function getCameraDefaults(mode) {
+  if (mode === 'far') {
+    // 2nd: Thoda Dur
+    return { dist: 6.8, height: 1.85, fov: 58, lookHeight: 0.95 };
+  }
+  if (mode === 'aerial') {
+    // 3rd: Thoda Uper Se Thoda Dur
+    return { dist: 8.6, height: 3.4, fov: 60, lookHeight: 0.65 };
+  }
+  // 1st: Initial Close
+  return { dist: 4.7, height: 1.45, fov: 56, lookHeight: 0.85 };
+}
 
 export function CameraRig() {
   const cameraMode = useGameStore((s) => s.cameraMode);
@@ -22,19 +38,26 @@ export function CameraRig() {
   });
 
   // Interactive Mouse / Touch Orbit & Zoom State
+  const initialCfg = getCameraDefaults(cameraMode);
   const orbit = useRef({
     yaw: 0,             // Horizontal rotation offset around car (radians)
     pitch: 0,           // Vertical elevation offset (radians)
-    distance: 4.7,      // Current smoothed distance (closer, intimate framing)
-    targetDist: 4.7,    // Target distance (from wheel/pinch)
+    distance: initialCfg.dist,      // Current smoothed distance
+    targetDist: initialCfg.dist,    // Target distance (from wheel/pinch)
     isDragging: false,
     lastInteractionTime: 0,
     prevX: 0,
     prevY: 0,
     activeTouches: new Map(),
     initialPinchDist: 0,
-    initialPinchTargetDist: 4.7
+    initialPinchTargetDist: initialCfg.dist
   });
+
+  // Smoothly glide target distance when cycling camera angles (Close / Far / Aerial)
+  useEffect(() => {
+    const cfg = getCameraDefaults(cameraMode);
+    orbit.current.targetDist = cfg.dist;
+  }, [cameraMode]);
 
   // Setup Mouse, Wheel, and Touch Listeners on Canvas
   useEffect(() => {
@@ -77,7 +100,7 @@ export function CameraRig() {
         orbit.current.prevX = e.clientX;
         orbit.current.prevY = e.clientY;
 
-        // Yaw & Pitch Orbit Sensitivity (natural intuitive drag: right->right, up->tilt up/look up)
+        // Yaw & Pitch Orbit Sensitivity (natural intuitive drag: right->right, up->tilt up)
         const yawSensitivity = 0.0055;
         const pitchSensitivity = 0.0045;
 
@@ -98,7 +121,7 @@ export function CameraRig() {
           orbit.current.targetDist = THREE.MathUtils.clamp(
             orbit.current.initialPinchTargetDist * ratio,
             1.8,
-            10.0
+            12.0
           );
           orbit.current.lastInteractionTime = performance.now();
         }
@@ -125,7 +148,7 @@ export function CameraRig() {
       orbit.current.targetDist = THREE.MathUtils.clamp(
         orbit.current.targetDist * zoomStep,
         1.8,
-        10.0
+        12.0
       );
       orbit.current.lastInteractionTime = performance.now();
     };
@@ -134,8 +157,8 @@ export function CameraRig() {
     const onDblClick = () => {
       orbit.current.yaw = 0;
       orbit.current.pitch = 0;
-      const defaultDist = cameraMode === 'action' ? 3.6 : cameraMode === 'cockpit' ? 0.28 : 4.7;
-      orbit.current.targetDist = defaultDist;
+      const cfg = getCameraDefaults(cameraMode);
+      orbit.current.targetDist = cfg.dist;
     };
 
     dom.addEventListener('pointerdown', onPointerDown);
@@ -157,8 +180,6 @@ export function CameraRig() {
 
   // Main 60-120 FPS Camera Dynamics Loop
   useFrame((_, delta) => {
-    if (cameraMode === 'free') return;
-
     const dt = Math.min(delta, 0.05);
     const m = math.current;
     const orb = orbit.current;
@@ -166,23 +187,12 @@ export function CameraRig() {
 
     m.carPosVec.set(carPosition[0], carPosition[1], carPosition[2]);
 
-    // Camera Profile Base Defaults (closer, intimate framing)
-    let defaultDist = 4.7;
-    let baseHeight = 1.45;
-    let baseFov = 56;
-    let lookHeight = 0.85;
-
-    if (cameraMode === 'action') {
-      defaultDist = 3.6;
-      baseHeight = 1.15;
-      baseFov = 60;
-      lookHeight = 0.75;
-    } else if (cameraMode === 'cockpit') {
-      defaultDist = 0.28;
-      baseHeight = 0.80;
-      baseFov = 72;
-      lookHeight = 0.75;
-    }
+    // Read active 3-angle camera profile
+    const camCfg = getCameraDefaults(cameraMode);
+    const defaultDist = camCfg.dist;
+    const baseHeight = camCfg.height;
+    const baseFov = camCfg.fov;
+    const lookHeight = camCfg.lookHeight;
 
     // --- AUTO-RECENTER LOGIC WHEN DRIVING ---
     const now = performance.now();
@@ -244,8 +254,8 @@ export function CameraRig() {
     const baseCamLerp = 14.0 + speedFactor * 14.0; // 14.0 at stop -> 28.0 at top speed!
     const baseLookLerp = 18.0 + speedFactor * 12.0;
 
-    const camLerpSpeed = cameraMode === 'cockpit' ? 30.0 : orb.isDragging ? 22.0 : baseCamLerp;
-    const lookLerpSpeed = cameraMode === 'cockpit' ? 30.0 : orb.isDragging ? 24.0 : baseLookLerp;
+    const camLerpSpeed = orb.isDragging ? 22.0 : baseCamLerp;
+    const lookLerpSpeed = orb.isDragging ? 24.0 : baseLookLerp;
 
     currentCamPos.current.lerp(m.targetCamPos, camLerpSpeed * dt);
     currentLookAt.current.lerp(m.targetLookAt, lookLerpSpeed * dt);
@@ -253,11 +263,6 @@ export function CameraRig() {
     camera.position.copy(currentCamPos.current);
     camera.lookAt(currentLookAt.current);
   });
-
-  if (cameraMode === 'free') {
-    const carPos = useGameStore.getState().carPosition;
-    return <OrbitControls target={[carPos[0], carPos[1] + 1, carPos[2]]} enableDamping />;
-  }
 
   return null;
 }

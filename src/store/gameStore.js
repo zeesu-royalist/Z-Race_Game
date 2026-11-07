@@ -25,8 +25,8 @@ export const useGameStore = create((set, get) => ({
   carPosition: [-3.0, 0.3, 10.0],
   carRotation: 0, // Facing boulevard +Z
 
-  // Game Settings & Camera
-  cameraMode: 'chase',
+  // Game Settings & Camera (3 Dedicated Angles: Close, Far, Aerial)
+  cameraMode: 'close',
   timeOfDay: 'sunset',
   soundEnabled: true,
   
@@ -49,37 +49,6 @@ export const useGameStore = create((set, get) => ({
     teleportSignal: s.teleportSignal + 1,
     teleportTarget: { pos, rotY }
   })),
-
-  // Speed Traps High Scores & Flash Banner
-  speedTrapRecords: {},
-  speedTrapFlash: null,
-  triggerSpeedTrap: (trapId, trapName, speedKmH) => {
-    const { speedTrapRecords } = get();
-    const prevBest = speedTrapRecords[trapId] || 0;
-    const isNewRecord = speedKmH > prevBest;
-    const best = Math.max(prevBest, speedKmH);
-
-    set({
-      speedTrapRecords: { ...speedTrapRecords, [trapId]: best },
-      speedTrapFlash: {
-        trapId,
-        trapName,
-        speed: speedKmH,
-        isNewRecord,
-        timestamp: Date.now()
-      }
-    });
-
-    // Auto dismiss flash after 3.2s
-    setTimeout(() => {
-      set((s) => {
-        if (s.speedTrapFlash && s.speedTrapFlash.trapId === trapId) {
-          return { speedTrapFlash: null };
-        }
-        return {};
-      });
-    }, 3200);
-  },
 
   // Actions
   selectCar: (carId, resetToSpawn = false) => {
@@ -154,7 +123,8 @@ export const useGameStore = create((set, get) => ({
   toggleHeadlights: () => set((s) => ({ headlights: !s.headlights })),
   setCameraMode: (mode) => set({ cameraMode: mode }),
   cycleCameraMode: () => {
-    const modes = ['chase', 'action', 'cockpit', 'free'];
+    // 3 Clean Camera Angles: 1st Initial Close, 2nd Far, 3rd Aerial (Thoda Uper Se Thoda Dur)
+    const modes = ['close', 'far', 'aerial'];
     const curIdx = modes.indexOf(get().cameraMode);
     const nextIdx = (curIdx + 1) % modes.length;
     set({ cameraMode: modes[nextIdx] });

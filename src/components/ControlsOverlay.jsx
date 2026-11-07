@@ -200,7 +200,7 @@ export function ControlsOverlay() {
                   <div className="key-badges">
                     <span className="key-cap">C</span>
                   </div>
-                  <span className="key-desc">Cycle Camera (Chase, Action, Cockpit, Orbit)</span>
+                  <span className="key-desc">Cycle 3 Camera Angles (Close, Far, Aerial)</span>
                 </div>
                 <div className="key-row">
                   <div className="key-badges">
