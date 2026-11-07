@@ -105,20 +105,6 @@ function CheckpointGate({ position, isNext, isPassed, gateNumber }) {
           opacity={isNext ? 0.7 : 0.2}
         />
       </mesh>
-
-      {/* Ground Pillar Beacon */}
-      <mesh position={[0, -0.6, 0]}>
-        <cylinderGeometry args={[0.08, 0.08, 1.2]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-
-      {/* Vertical Light Beam into Sky */}
-      {isNext && (
-        <mesh position={[0, 18, 0]}>
-          <cylinderGeometry args={[0.3, 0.3, 36]} />
-          <meshBasicMaterial color="#00f0ff" transparent opacity={0.25} />
-        </mesh>
-      )}
     </group>
   );
 }

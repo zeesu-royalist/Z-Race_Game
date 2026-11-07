@@ -403,8 +403,9 @@ export function Car() {
       carGroup.current.rotation.set(s.pitch, s.rotationY, 0, 'YXZ');
     }
 
-    // Sound Engine Update
-    soundManager.updateEngine(s.rpm, inputState.forward, speedKmH);
+    // Sound Engine Update with Dynamic Per-Car Audio Profile
+    const activeCar = useGameStore.getState().cars.find((c) => c.id === useGameStore.getState().currentCarId);
+    soundManager.updateEngine(s.rpm, inputState.forward, speedKmH, activeCar?.category || '');
     soundManager.updateDrift(s.isDrifting, s.driftIntensity);
     soundManager.updateNitro(s.isNitroActive);
 

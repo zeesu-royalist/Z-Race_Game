@@ -21,6 +21,7 @@ export function SpeedometerHUD() {
   const rpmValRef = useRef(null);
   const rpmBarRef = useRef(null);
   const nitroBarRef = useRef(null);
+  const speedVignetteRef = useRef(null);
 
   useEffect(() => {
     let animId;
@@ -34,6 +35,17 @@ export function SpeedometerHUD() {
       const gear = state.gear;
       const nitro = state.nitro;
       const isNitroActive = state.isNitroActive;
+
+      // High-speed & Nitro Wind Vignette
+      if (speedVignetteRef.current) {
+        if (isNitroActive || speed > 130) {
+          const intensity = isNitroActive ? 0.85 : Math.min(0.65, (speed - 130) / 100);
+          speedVignetteRef.current.style.opacity = intensity;
+          speedVignetteRef.current.className = isNitroActive ? 'speed-vignette nitro-vignette' : 'speed-vignette';
+        } else {
+          speedVignetteRef.current.style.opacity = 0;
+        }
+      }
 
       // 1. Digital Speed Text
       if (speedTextRef.current) {
@@ -95,7 +107,11 @@ export function SpeedometerHUD() {
   };
 
   return (
-    <div className="hud-container">
+    <>
+      {/* High-Speed Radial Wind & Nitro Blur Vignette */}
+      <div ref={speedVignetteRef} className="speed-vignette" />
+
+      <div className="hud-container">
       {/* Top Bar: Race stats (updates on lap/checkpoint change) */}
       {raceActive && (
         <div className="race-top-card">
@@ -219,5 +235,6 @@ export function SpeedometerHUD() {
         </div>
       </div>
     </div>
-  );
+  </>
+);
 }

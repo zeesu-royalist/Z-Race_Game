@@ -5,6 +5,7 @@ class SoundSystem {
     this.ctx = null;
     this.initialized = false;
     this.enabled = true;
+    this.currentProfile = 'jdm_turbo';
 
     // Engine Nodes
     this.engineGain = null;
@@ -149,29 +150,100 @@ class SoundSystem {
     }
   }
 
-  updateEngine(rpm, throttle, speedKmH) {
+  setProfile(category = '') {
+    const cat = (category || '').toLowerCase();
+    if (cat.includes('ev') || cat.includes('electric')) {
+      this.currentProfile = 'ev';
+    } else if (cat.includes('muscle')) {
+      this.currentProfile = 'v8_muscle';
+    } else if (cat.includes('scuderia') || cat.includes('vision') || cat.includes('ferrari') || cat.includes('lamborghini')) {
+      this.currentProfile = 'v12_screamer';
+    } else if (cat.includes('w16') || cat.includes('bugatti') || cat.includes('titan')) {
+      this.currentProfile = 'w16_quad';
+    } else {
+      this.currentProfile = 'jdm_turbo';
+    }
+  }
+
+  updateEngine(rpm, throttle, speedKmH, category = '') {
     if (!this.initialized || !this.enabled) {
       if (this.engineGain) this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
       return;
     }
     this.resume();
 
-    // Map RPM (900 - 8000) to base frequency (30Hz - 220Hz)
+    if (category) this.setProfile(category);
+
     const normRPM = Math.max(0, Math.min(1, (rpm - 900) / 7100));
-    const baseFreq = 28 + normRPM * 190;
-
     const t = this.ctx.currentTime;
-    this.osc1.frequency.setTargetAtTime(baseFreq, t, 0.05);
-    this.osc2.frequency.setTargetAtTime(baseFreq * 1.5, t, 0.05);
-    this.oscSub.frequency.setTargetAtTime(baseFreq * 0.5, t, 0.05);
 
-    // Filter frequency opens up with throttle
-    const filterFreq = 300 + normRPM * 1800 + (throttle ? 800 : 0);
-    this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
+    // Distinct Procedural Sound Profiles
+    if (this.currentProfile === 'ev') {
+      // Futuristic High-Pitch Electric Turbine Whine
+      const evFreq = 95 + normRPM * 650;
+      this.osc1.type = 'sine';
+      this.osc1.frequency.setTargetAtTime(evFreq, t, 0.05);
+      this.osc2.frequency.setTargetAtTime(evFreq * 2.0, t, 0.05);
+      this.oscSub.frequency.setTargetAtTime(evFreq * 0.5, t, 0.05);
 
-    // Volume scales with throttle & RPM
-    const targetGain = 0.12 + (throttle ? 0.14 : 0.04) + normRPM * 0.1;
-    this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
+      const filterFreq = 800 + normRPM * 2400;
+      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
+
+      const targetGain = 0.10 + (throttle ? 0.16 : 0.02) + normRPM * 0.12;
+      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
+    } else if (this.currentProfile === 'v8_muscle') {
+      // Deep Throaty American V8 Rumble
+      const v8Freq = 22 + normRPM * 155;
+      this.osc1.type = 'sawtooth';
+      this.osc1.frequency.setTargetAtTime(v8Freq, t, 0.05);
+      this.osc2.frequency.setTargetAtTime(v8Freq * 1.5, t, 0.05);
+      this.oscSub.frequency.setTargetAtTime(v8Freq * 0.5, t, 0.05);
+
+      const filterFreq = 250 + normRPM * 1400 + (throttle ? 700 : 0);
+      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
+
+      const targetGain = 0.16 + (throttle ? 0.18 : 0.05) + normRPM * 0.12;
+      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
+    } else if (this.currentProfile === 'v12_screamer') {
+      // High-Revving Screaming Italian V12 / V10
+      const v12Freq = 38 + normRPM * 290;
+      this.osc1.type = 'sawtooth';
+      this.osc1.frequency.setTargetAtTime(v12Freq, t, 0.05);
+      this.osc2.frequency.setTargetAtTime(v12Freq * 1.5, t, 0.05);
+      this.oscSub.frequency.setTargetAtTime(v12Freq * 0.5, t, 0.05);
+
+      const filterFreq = 450 + normRPM * 2600 + (throttle ? 1100 : 0);
+      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
+
+      const targetGain = 0.14 + (throttle ? 0.16 : 0.04) + normRPM * 0.14;
+      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
+    } else if (this.currentProfile === 'w16_quad') {
+      // Massive Quad-Turbo W16 Roar
+      const w16Freq = 25 + normRPM * 220;
+      this.osc1.type = 'sawtooth';
+      this.osc1.frequency.setTargetAtTime(w16Freq, t, 0.05);
+      this.osc2.frequency.setTargetAtTime(w16Freq * 1.6, t, 0.05);
+      this.oscSub.frequency.setTargetAtTime(w16Freq * 0.5, t, 0.05);
+
+      const filterFreq = 320 + normRPM * 2100 + (throttle ? 950 : 0);
+      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
+
+      const targetGain = 0.16 + (throttle ? 0.18 : 0.05) + normRPM * 0.13;
+      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
+    } else {
+      // JDM 2JZ Twin-Turbo / Inline-6
+      const baseFreq = 28 + normRPM * 195;
+      this.osc1.type = 'sawtooth';
+      this.osc1.frequency.setTargetAtTime(baseFreq, t, 0.05);
+      this.osc2.frequency.setTargetAtTime(baseFreq * 1.5, t, 0.05);
+      this.oscSub.frequency.setTargetAtTime(baseFreq * 0.5, t, 0.05);
+
+      const filterFreq = 300 + normRPM * 1900 + (throttle ? 850 : 0);
+      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
+
+      const targetGain = 0.13 + (throttle ? 0.15 : 0.04) + normRPM * 0.11;
+      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
+    }
   }
 
   updateDrift(isDrifting, driftIntensity) {
@@ -267,4 +339,3 @@ class SoundSystem {
 }
 
 export const soundManager = new SoundSystem();
-
