@@ -25,15 +25,15 @@ export function CameraRig() {
   const orbit = useRef({
     yaw: 0,             // Horizontal rotation offset around car (radians)
     pitch: 0,           // Vertical elevation offset (radians)
-    distance: 6.2,      // Current smoothed distance
-    targetDist: 6.2,    // Target distance (from wheel/pinch)
+    distance: 4.7,      // Current smoothed distance (closer, intimate framing)
+    targetDist: 4.7,    // Target distance (from wheel/pinch)
     isDragging: false,
     lastInteractionTime: 0,
     prevX: 0,
     prevY: 0,
     activeTouches: new Map(),
     initialPinchDist: 0,
-    initialPinchTargetDist: 6.2
+    initialPinchTargetDist: 4.7
   });
 
   // Setup Mouse, Wheel, and Touch Listeners on Canvas
@@ -97,8 +97,8 @@ export function CameraRig() {
           const ratio = orbit.current.initialPinchDist / Math.max(1, currentPinchDist);
           orbit.current.targetDist = THREE.MathUtils.clamp(
             orbit.current.initialPinchTargetDist * ratio,
-            2.2,
-            16.0
+            1.8,
+            10.0
           );
           orbit.current.lastInteractionTime = performance.now();
         }
@@ -121,11 +121,11 @@ export function CameraRig() {
     // Mouse Wheel Zoom In / Out
     const onWheel = (e) => {
       e.preventDefault();
-      const zoomStep = e.deltaY > 0 ? 1.12 : 0.89;
+      const zoomStep = e.deltaY > 0 ? 1.10 : 0.90;
       orbit.current.targetDist = THREE.MathUtils.clamp(
         orbit.current.targetDist * zoomStep,
-        2.2,
-        16.0
+        1.8,
+        10.0
       );
       orbit.current.lastInteractionTime = performance.now();
     };
@@ -134,7 +134,7 @@ export function CameraRig() {
     const onDblClick = () => {
       orbit.current.yaw = 0;
       orbit.current.pitch = 0;
-      const defaultDist = cameraMode === 'action' ? 4.4 : cameraMode === 'cockpit' ? 0.3 : 6.2;
+      const defaultDist = cameraMode === 'action' ? 3.6 : cameraMode === 'cockpit' ? 0.28 : 4.7;
       orbit.current.targetDist = defaultDist;
     };
 
@@ -166,22 +166,22 @@ export function CameraRig() {
 
     m.carPosVec.set(carPosition[0], carPosition[1], carPosition[2]);
 
-    // Camera Profile Base Defaults (proportioned to 3.9m vehicle scale)
-    let defaultDist = 6.2;
-    let baseHeight = 1.95;
-    let baseFov = 62;
-    let lookHeight = 0.95;
+    // Camera Profile Base Defaults (closer, intimate framing)
+    let defaultDist = 4.7;
+    let baseHeight = 1.45;
+    let baseFov = 56;
+    let lookHeight = 0.85;
 
     if (cameraMode === 'action') {
-      defaultDist = 4.4;
-      baseHeight = 1.4;
-      baseFov = 68;
-      lookHeight = 0.85;
+      defaultDist = 3.6;
+      baseHeight = 1.15;
+      baseFov = 60;
+      lookHeight = 0.75;
     } else if (cameraMode === 'cockpit') {
-      defaultDist = 0.3;
-      baseHeight = 0.82;
-      baseFov = 75;
-      lookHeight = 0.78;
+      defaultDist = 0.28;
+      baseHeight = 0.80;
+      baseFov = 72;
+      lookHeight = 0.75;
     }
 
     // --- AUTO-RECENTER LOGIC WHEN DRIVING ---
@@ -232,15 +232,20 @@ export function CameraRig() {
       m.carPosVec.z + 0.3 * Math.cos(carRotation)
     );
 
-    // Dynamic FOV kick on high speed & boost
+    // Dynamic FOV kick on high speed & boost (subtle so car stays close and prominent!)
     const speedRatio = Math.min(1.0, speed / 240);
-    const targetFov = baseFov + speedRatio * 10 + (isNitroActive ? 8 : 0);
+    const targetFov = baseFov + speedRatio * 3.5 + (isNitroActive ? 2.5 : 0);
     camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 6.0 * dt);
     camera.updateProjectionMatrix();
 
-    // Responsive camera tracking (faster when user is dragging mouse for 1:1 feel, cinematic damped when cruising)
-    const camLerpSpeed = cameraMode === 'cockpit' ? 28.0 : orb.isDragging ? 18.0 : 8.5;
-    const lookLerpSpeed = cameraMode === 'cockpit' ? 28.0 : orb.isDragging ? 20.0 : 12.0;
+    // High-speed camera follow tightness (eliminates rubber-band camera lag/stretch!)
+    // At higher speeds, tracking tightens so car never pulls away from camera
+    const speedFactor = Math.min(1.0, speedKmH / 160);
+    const baseCamLerp = 14.0 + speedFactor * 14.0; // 14.0 at stop -> 28.0 at top speed!
+    const baseLookLerp = 18.0 + speedFactor * 12.0;
+
+    const camLerpSpeed = cameraMode === 'cockpit' ? 30.0 : orb.isDragging ? 22.0 : baseCamLerp;
+    const lookLerpSpeed = cameraMode === 'cockpit' ? 30.0 : orb.isDragging ? 24.0 : baseLookLerp;
 
     currentCamPos.current.lerp(m.targetCamPos, camLerpSpeed * dt);
     currentLookAt.current.lerp(m.targetLookAt, lookLerpSpeed * dt);

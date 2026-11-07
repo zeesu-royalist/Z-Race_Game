@@ -42,6 +42,45 @@ export const useGameStore = create((set, get) => ({
   // Reset Signal
   resetSignal: 0,
 
+  // Fast Travel & District Teleport
+  teleportSignal: 0,
+  teleportTarget: null,
+  teleportTo: (pos, rotY = 0) => set((s) => ({
+    teleportSignal: s.teleportSignal + 1,
+    teleportTarget: { pos, rotY }
+  })),
+
+  // Speed Traps High Scores & Flash Banner
+  speedTrapRecords: {},
+  speedTrapFlash: null,
+  triggerSpeedTrap: (trapId, trapName, speedKmH) => {
+    const { speedTrapRecords } = get();
+    const prevBest = speedTrapRecords[trapId] || 0;
+    const isNewRecord = speedKmH > prevBest;
+    const best = Math.max(prevBest, speedKmH);
+
+    set({
+      speedTrapRecords: { ...speedTrapRecords, [trapId]: best },
+      speedTrapFlash: {
+        trapId,
+        trapName,
+        speed: speedKmH,
+        isNewRecord,
+        timestamp: Date.now()
+      }
+    });
+
+    // Auto dismiss flash after 3.2s
+    setTimeout(() => {
+      set((s) => {
+        if (s.speedTrapFlash && s.speedTrapFlash.trapId === trapId) {
+          return { speedTrapFlash: null };
+        }
+        return {};
+      });
+    }, 3200);
+  },
+
   // Actions
   selectCar: (carId, resetToSpawn = false) => {
     const { cars } = get();

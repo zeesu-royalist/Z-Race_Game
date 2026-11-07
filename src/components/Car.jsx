@@ -25,6 +25,7 @@ export function Car() {
 
   // Zustand state hooks (event-driven)
   const resetSignal = useGameStore((s) => s.resetSignal);
+  const teleportSignal = useGameStore((s) => s.teleportSignal);
   const currentCarId = useGameStore((s) => s.currentCarId);
   const headlights = useGameStore((s) => s.headlights);
   const soundEnabled = useGameStore((s) => s.soundEnabled);
@@ -177,6 +178,29 @@ export function Car() {
   useEffect(() => {
     soundManager.setEnabled(soundEnabled);
   }, [soundEnabled]);
+
+  // Fast Travel & District Teleport Handler
+  useEffect(() => {
+    if (teleportSignal > 0) {
+      const target = useGameStore.getState().teleportTarget;
+      if (target) {
+        const s = state.current;
+        s.position.set(target.pos[0], target.pos[1], target.pos[2]);
+        s.rotationY = target.rotY;
+        s.speed = 0;
+        s.verticalVelocity = 0;
+        s.angularVelocity = 0;
+        s.steerAngle = 0;
+        s.pitch = 0;
+        s.roll = 0;
+        s.isGrounded = true;
+        if (carGroup.current) {
+          carGroup.current.position.copy(s.position);
+          carGroup.current.rotation.set(0, s.rotationY, 0);
+        }
+      }
+    }
+  }, [teleportSignal]);
 
   // Safe car model swap in-place without jarring physics glitches
   useEffect(() => {
