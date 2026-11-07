@@ -25,15 +25,15 @@ export function CameraRig() {
   const orbit = useRef({
     yaw: 0,             // Horizontal rotation offset around car (radians)
     pitch: 0,           // Vertical elevation offset (radians)
-    distance: 7.2,      // Current smoothed distance
-    targetDist: 7.2,    // Target distance (from wheel/pinch)
+    distance: 6.2,      // Current smoothed distance
+    targetDist: 6.2,    // Target distance (from wheel/pinch)
     isDragging: false,
     lastInteractionTime: 0,
     prevX: 0,
     prevY: 0,
     activeTouches: new Map(),
     initialPinchDist: 0,
-    initialPinchTargetDist: 7.2
+    initialPinchTargetDist: 6.2
   });
 
   // Setup Mouse, Wheel, and Touch Listeners on Canvas
@@ -134,7 +134,7 @@ export function CameraRig() {
     const onDblClick = () => {
       orbit.current.yaw = 0;
       orbit.current.pitch = 0;
-      const defaultDist = cameraMode === 'action' ? 5.2 : cameraMode === 'cockpit' ? 0.35 : 7.2;
+      const defaultDist = cameraMode === 'action' ? 4.4 : cameraMode === 'cockpit' ? 0.3 : 6.2;
       orbit.current.targetDist = defaultDist;
     };
 
@@ -166,22 +166,22 @@ export function CameraRig() {
 
     m.carPosVec.set(carPosition[0], carPosition[1], carPosition[2]);
 
-    // Camera Profile Base Defaults
-    let defaultDist = 7.2;
-    let baseHeight = 2.2;
+    // Camera Profile Base Defaults (proportioned to 3.9m vehicle scale)
+    let defaultDist = 6.2;
+    let baseHeight = 1.95;
     let baseFov = 62;
-    let lookHeight = 1.0;
+    let lookHeight = 0.95;
 
     if (cameraMode === 'action') {
-      defaultDist = 5.2;
-      baseHeight = 1.6;
+      defaultDist = 4.4;
+      baseHeight = 1.4;
       baseFov = 68;
-      lookHeight = 0.9;
+      lookHeight = 0.85;
     } else if (cameraMode === 'cockpit') {
-      defaultDist = 0.35;
-      baseHeight = 0.88;
+      defaultDist = 0.3;
+      baseHeight = 0.82;
       baseFov = 75;
-      lookHeight = 0.82;
+      lookHeight = 0.78;
     }
 
     // --- AUTO-RECENTER LOGIC WHEN DRIVING ---

@@ -4,8 +4,8 @@ import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '../store/gameStore';
 
-// Target standard sports car length in meters
-const TARGET_CAR_LENGTH = 4.6;
+// Target standard sports car length in meters (proportionally balanced to city road lanes)
+const TARGET_CAR_LENGTH = 3.9;
 
 // Known orientation overrides for models with non-standard coordinate systems
 const KNOWN_ORIENTATIONS = {
@@ -46,7 +46,7 @@ function TireSmokeEmitter({ isDrifting }) {
     spawnTimer.current += dt;
     if (isDrifting && spawnTimer.current > 0.035) {
       spawnTimer.current = 0;
-      const sides = [-0.75, 0.75];
+      const sides = [-0.64, 0.64];
       for (let s = 0; s < 2; s++) {
         const xOff = sides[s];
         const p = pList[nextSpawnIndex.current % maxParticles];
@@ -54,16 +54,16 @@ function TireSmokeEmitter({ isDrifting }) {
         p.active = true;
         p.life = 0;
         p.maxLife = 0.5 + Math.random() * 0.3;
-        p.scale = 0.2 + Math.random() * 0.15;
+        p.scale = 0.18 + Math.random() * 0.12;
         p.pos.set(
-          xOff + (Math.random() - 0.5) * 0.2,
-          0.12 + Math.random() * 0.06,
-          -1.75 - Math.random() * 0.25
+          xOff + (Math.random() - 0.5) * 0.15,
+          0.10 + Math.random() * 0.05,
+          -1.48 - Math.random() * 0.2
         );
         p.vel.set(
-          (Math.random() - 0.5) * 0.6 + (xOff > 0 ? 0.35 : -0.35),
-          0.7 + Math.random() * 0.6,
-          -1.4 - Math.random() * 1.2
+          (Math.random() - 0.5) * 0.5 + (xOff > 0 ? 0.3 : -0.3),
+          0.6 + Math.random() * 0.5,
+          -1.2 - Math.random() * 1.0
         );
       }
     }
@@ -360,8 +360,8 @@ export function CarModel({
       {headlightsOn && (
         <>
           <spotLight
-            position={[-0.75, 0.45, 2.15]}
-            target-position={[-0.75, -0.6, 50]}
+            position={[-0.64, 0.38, 1.82]}
+            target-position={[-0.64, -0.6, 50]}
             color="#eaf5ff"
             intensity={42}
             distance={65}
@@ -369,8 +369,8 @@ export function CarModel({
             penumbra={0.6}
           />
           <spotLight
-            position={[0.75, 0.45, 2.15]}
-            target-position={[0.75, -0.6, 50]}
+            position={[0.64, 0.38, 1.82]}
+            target-position={[0.64, -0.6, 50]}
             color="#eaf5ff"
             intensity={42}
             distance={65}
@@ -382,10 +382,10 @@ export function CarModel({
 
       {/* Nitro Boost Thruster Flame */}
       {isNitroActive && (
-        <group position={[0, 0.35, -2.25]}>
+        <group position={[0, 0.3, -1.9]}>
           <pointLight color="#00f0ff" intensity={14} distance={9} />
           <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.16, 1.5, 16]} />
+            <coneGeometry args={[0.13, 1.3, 16]} />
             <meshBasicMaterial color="#00e5ff" transparent opacity={0.85} />
           </mesh>
         </group>
@@ -393,7 +393,7 @@ export function CarModel({
 
       {/* Taillight Brake Glow */}
       {isBraking && (
-        <group position={[0, 0.5, -2.25]}>
+        <group position={[0, 0.42, -1.9]}>
           <pointLight color="#ff0022" intensity={12} distance={6} />
         </group>
       )}

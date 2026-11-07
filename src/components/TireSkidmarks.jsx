@@ -53,12 +53,12 @@ export function TireSkidmarks() {
       m.sinR = Math.sin(carRotation);
       m.cosR = Math.cos(carRotation);
 
-      // Left & right rear tire offsets in local space
-      const tireOffsets = [-0.75, 0.75];
+      // Left & right rear tire offsets in local space (aligned to 3.9m car scale)
+      const tireOffsets = [-0.64, 0.64];
 
       for (let i = 0; i < 2; i++) {
         const offX = tireOffsets[i];
-        const offZ = -1.6;
+        const offZ = -1.4;
 
         // Rotate offset by car rotation
         const worldX = m.carPos.x + offX * m.cosR + offZ * m.sinR;
