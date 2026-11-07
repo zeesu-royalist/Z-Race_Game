@@ -220,6 +220,30 @@ export function ControlsOverlay() {
                   </div>
                   <span className="key-desc">Mute / Unmute Procedural Sound</span>
                 </div>
+                <div className="key-row">
+                  <div className="key-badges">
+                    <span className="key-cap wide-key">MOUSE DRAG</span>
+                  </div>
+                  <span className="key-desc">360° Orbit Camera (Inspect Car from Any Angle)</span>
+                </div>
+                <div className="key-row">
+                  <div className="key-badges">
+                    <span className="key-cap wide-key">WHEEL / PINCH</span>
+                  </div>
+                  <span className="key-desc">Zoom In & Out Smoothly</span>
+                </div>
+                <div className="key-row">
+                  <div className="key-badges">
+                    <span className="key-cap wide-key">DRIVE (W / ▲)</span>
+                  </div>
+                  <span className="key-desc">Auto-Recenter Camera Smoothly Behind Car</span>
+                </div>
+                <div className="key-row">
+                  <div className="key-badges">
+                    <span className="key-cap wide-key">2x CLICK</span>
+                  </div>
+                  <span className="key-desc">Instant Camera Snap to Rear</span>
+                </div>
               </div>
             </div>
 
