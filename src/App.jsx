@@ -5,16 +5,30 @@ import { MiniMap } from './components/MiniMap';
 import { ControlsOverlay } from './components/ControlsOverlay';
 import { TouchControls } from './components/TouchControls';
 import { soundManager } from './utils/AudioSystem';
+import { useGameStore } from './store/gameStore';
 
 export default function App() {
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const fetchCars = useGameStore((s) => s.fetchCars);
+  const syncCarsList = useGameStore((s) => s.syncCarsList);
 
   useEffect(() => {
-    // Detect touch capability
+    // 1. Initial car scanning from public/cars-models/
+    fetchCars();
+
+    // 2. Real-time HMR watcher for dynamically dropped .glb files
+    if (import.meta.hot) {
+      import.meta.hot.on('cars-updated', (updatedCars) => {
+        console.log('[Z-Race] New cars detected in public/cars-models/!', updatedCars);
+        syncCarsList(updatedCars);
+      });
+    }
+
+    // 3. Detect touch capability
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     setIsTouchDevice(hasTouch);
 
-    // Audio context auto-init on first click
+    // 4. Audio context auto-init on first click
     const handleFirstClick = () => {
       soundManager.init();
       window.removeEventListener('click', handleFirstClick);
@@ -28,7 +42,7 @@ export default function App() {
       window.removeEventListener('click', handleFirstClick);
       window.removeEventListener('keydown', handleFirstClick);
     };
-  }, []);
+  }, [fetchCars, syncCarsList]);
 
   return (
     <div className="game-viewport">
@@ -49,4 +63,3 @@ export default function App() {
     </div>
   );
 }
-

@@ -67,12 +67,12 @@ export function CityMap() {
     console.log(`[Z-Race] City loaded & optimized with ${cityColliders.length} collision meshes.`);
   }, [scene]);
 
-  // Streetlights along the main boulevard (x: -400 to 140 at z: -9)
+  // Streetlights along the main boulevard (flanking road center at z: -5.4)
   const streetLightPositions = useMemo(() => {
     const list = [];
     for (let x = -400; x <= 140; x += 70) {
-      list.push([x, 8, -17]);
-      list.push([x, 8, -1]);
+      list.push([x, 8, -15]);
+      list.push([x, 8, 4]);
     }
     return list;
   }, []);
@@ -90,8 +90,8 @@ export function CityMap() {
         <meshStandardMaterial color="#0e1318" roughness={0.9} />
       </mesh>
 
-      {/* Starting Grid Line Decal on the road */}
-      <group position={[10, 0.05, -8.9]}>
+      {/* Starting Grid Line Decal dead center on the road */}
+      <group position={[10, 0.05, -5.4]}>
         {/* Checkered Start Line */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[2.5, 9.5]} />

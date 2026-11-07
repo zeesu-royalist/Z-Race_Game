@@ -1,138 +1,230 @@
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '../store/gameStore';
 
+// Target standard sports car length in meters
+const TARGET_CAR_LENGTH = 4.6;
+
+// Known orientation overrides for models with non-standard coordinate systems
+const KNOWN_ORIENTATIONS = {
+  // BMW M4 was exported facing -Z (backwards). Rotate 180° around Y to face +Z.
+  'bmw_m4_f82_razor_2014__www.vecarz.com.glb': [0, Math.PI, 0],
+  // Dominus has length along X axis, facing +X. Rotate -90° around Y to face +Z.
+  'dominus_-_rocket_league_car.glb': [0, -Math.PI / 2, 0],
+  // Ferrari 488 has length along X axis, facing +X. Rotate -90° around Y to face +Z.
+  'ferrari_488_pista_widebody.glb': [0, -Math.PI / 2, 0]
+};
+
 /**
- * Universal GLB Car Loader
- * Automatically handles centering, scale normalization, shadow configuration,
- * and wheel node detection/rotation from user's custom GLB model.
+ * Universal Global Car Adapter
+ * Automatically scales, centers, orients any 3D car GLB,
+ * adapts missing shaders/colors, and connects steering/rolling wheels.
  */
-function CustomCarGLB({ url, steerAngle = 0, wheelRotation = 0, isBraking = false }) {
+function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
   const { scene } = useGLTF(url);
-  const modelRef = useRef();
-  const wheelNodes = useRef({ fl: [], fr: [], rl: [], rr: [] });
+  const frontWheelsRef = useRef([]);
+  const rearWheelsRef = useRef([]);
 
-  // Clone & configure scene once on load
-  const processedScene = useMemo(() => {
-    const clone = scene.clone(true);
-    wheelNodes.current = { fl: [], fr: [], rl: [], rr: [] };
+  const adapted = useMemo(() => {
+    const root = scene.clone(true);
+    frontWheelsRef.current = [];
+    rearWheelsRef.current = [];
 
-    // Calculate bounding box to auto-center and measure model dimensions
-    const box = new THREE.Box3().setFromObject(clone);
+    const fileName = (url || '').split('/').pop();
+
+    // 1. Material Adaptation & Color Correction
+    root.traverse((node) => {
+      const name = (node.name || '').toLowerCase();
+
+      // Hide fake baked ground shadows
+      if (name.includes('shadow') || (name.includes('ground') && !name.includes('compound'))) {
+        node.visible = false;
+      }
+
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+
+        if (node.material) {
+          const mats = Array.isArray(node.material) ? node.material : [node.material];
+          mats.forEach((mat) => {
+            // Fix sRGB color space on all textures
+            if (mat.map) {
+              mat.map.colorSpace = THREE.SRGBColorSpace;
+              mat.map.needsUpdate = true;
+            }
+
+            const matName = (mat.name || '').toLowerCase();
+
+            // Ferrari 488 Pista Widebody fix:
+            // "GREEN_car_paint" was exported with baseColor [0,0,0,1]
+            if (mat.name === 'GREEN_car_paint' || matName.includes('green_car_paint')) {
+              mat.color.set('#15803d'); // Deep Emerald / British Racing Green
+              mat.roughness = 0.2;
+              mat.metalness = 0.5;
+              if ('clearcoat' in mat) mat.clearcoat = 1.0;
+            } else if (mat.name === 'Coloured' && fileName.includes('ferrari')) {
+              mat.color.set('#1e293b'); // Dark carbon aero trim
+              mat.roughness = 0.35;
+              mat.metalness = 0.5;
+            }
+
+            // BMW M4 Razor Edition fix:
+            // "chassis.011" is the main body shell with black baseColor
+            else if (mat.name === 'chassis.011' || (fileName.includes('bmw') && matName.includes('chassis'))) {
+              mat.color.set('#c8d0dc'); // Razor Metallic Silver
+              mat.roughness = 0.22;
+              mat.metalness = 0.75;
+              if ('clearcoat' in mat) mat.clearcoat = 0.9;
+            }
+
+            // Dominus fix:
+            else if (fileName.includes('dominus')) {
+              if (mat.name === 'Window') {
+                mat.color.set('#1a2634');
+                mat.transparent = true;
+                mat.opacity = 0.45;
+                mat.roughness = 0.1;
+              } else if (mat.name === 'Cristiano' || mat.name === 'Tread') {
+                mat.color.set('#1a1a1a');
+                mat.roughness = 0.88;
+                mat.metalness = 0.08;
+              }
+            }
+
+            // Windows & Tinted Glass across all models:
+            if (matName.includes('window') || matName.includes('glass') || matName.includes('windshield')) {
+              if (!mat.map && (mat.color.getHex() === 0 || mat.color.getHex() === 0xffffff)) {
+                mat.color.set('#141c26');
+                mat.transparent = true;
+                mat.opacity = 0.42;
+                mat.roughness = 0.1;
+                mat.metalness = 0.2;
+              }
+            }
+
+            // General Protection for untextured pure pitch-black materials:
+            if (!mat.map && mat.color.getHex() === 0) {
+              const isTire = matName.includes('tire') || matName.includes('tyre') || matName.includes('tread') || matName.includes('rubber');
+              const isBody = matName.includes('paint') || matName.includes('body') || matName.includes('chassis') || matName.includes('car');
+
+              if (isBody) {
+                mat.color.set('#242b35'); // Deep metallic anthracite
+                mat.roughness = 0.25;
+                mat.metalness = 0.6;
+              } else if (isTire) {
+                mat.color.set('#1a1a1a'); // Dark rubber
+                mat.roughness = 0.85;
+                mat.metalness = 0.05;
+              } else {
+                mat.color.set('#202328');
+                mat.roughness = Math.max(0.3, mat.roughness);
+              }
+            }
+
+            // Ensure ultra-smooth metallic surfaces never render pure black
+            if (mat.metalness >= 0.85 && mat.roughness <= 0.05) {
+              mat.roughness = 0.12;
+            }
+
+            mat.needsUpdate = true;
+          });
+        }
+      }
+    });
+
+    // 2. Measure Raw Dimensions Before Orientation
+    root.updateMatrixWorld(true);
+    const rawBox = new THREE.Box3().setFromObject(root);
+    const rawSize = new THREE.Vector3();
+    rawBox.getSize(rawSize);
+
+    // 3. Precise Orientation Logic
+    const explicitRot = KNOWN_ORIENTATIONS[fileName];
+    if (explicitRot) {
+      root.rotation.set(explicitRot[0], explicitRot[1], explicitRot[2]);
+    } else {
+      // General Auto-Orientation Engine:
+      // If length is along X axis (car is sideways): rotate -90 deg on Y to face +Z
+      if (rawSize.x > rawSize.z * 1.3 && rawSize.x > rawSize.y) {
+        root.rotation.y = -Math.PI / 2;
+      }
+      // If length is along Y axis (Blender Z-up): rotate -90 deg on X
+      else if (rawSize.y > rawSize.z * 1.3 && rawSize.y > rawSize.x) {
+        root.rotation.x = -Math.PI / 2;
+      }
+    }
+
+    // 4. Compute Bounding Box After Orientation
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(root);
     const size = new THREE.Vector3();
     box.getSize(size);
     const center = new THREE.Vector3();
     box.getCenter(center);
 
-    // Auto-normalize scale if model was exported in millimeters or extreme scale
-    let scaleMultiplier = 1.0;
-    if (size.z > 25 || size.x > 25) {
-      // Model in centimeters/millimeters
-      scaleMultiplier = 0.01;
-    } else if (size.z < 0.8 && size.x < 0.8) {
-      scaleMultiplier = 4.0;
-    }
+    // 5. Scale Normalization (Normalized to standard 4.60m length)
+    const scaleMultiplier = TARGET_CAR_LENGTH / size.z;
 
-    clone.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+    // 6. Perfect Center & Tire Alignment:
+    // Center laterally (X = 0) and longitudinally (Z = 0)
+    // Anchor the tire bottom exactly at Y = 0.0
+    root.position.x = -center.x;
+    root.position.y = -box.min.y;
+    root.position.z = -center.z;
 
-        if (child.material) {
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach((mat) => {
-            if (mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
-          });
-        }
+    // 7. Wrapper Group
+    const wrapper = new THREE.Group();
+    wrapper.name = 'CarUniversalWrapper';
+    wrapper.add(root);
+    wrapper.scale.setScalar(scaleMultiplier);
+    wrapper.updateMatrixWorld(true);
 
-        // Identify wheel nodes if named conventionally in Blender/3ds Max
-        const name = child.name.toLowerCase();
-        if (name.includes('wheel') || name.includes('tire') || name.includes('tyre') || name.includes('rim')) {
-          if (name.includes('fl') || name.includes('front_l') || (name.includes('front') && name.includes('left'))) {
-            wheelNodes.current.fl.push(child);
-          } else if (name.includes('fr') || name.includes('front_r') || (name.includes('front') && name.includes('right'))) {
-            wheelNodes.current.fr.push(child);
-          } else if (name.includes('rl') || name.includes('rear_l') || (name.includes('back_l'))) {
-            wheelNodes.current.rl.push(child);
-          } else if (name.includes('rr') || name.includes('rear_r') || (name.includes('back_r'))) {
-            wheelNodes.current.rr.push(child);
-          }
+    // 8. Find and Register Wheels for Steering & Rolling
+    root.traverse((node) => {
+      const name = (node.name || '').toLowerCase();
+      const isWheelMesh = (name.includes('wheel') || name.includes('tire') || name.includes('tyre') || name.includes('rim')) && node.isMesh;
+      if (isWheelMesh) {
+        // In oriented local space, front wheels have positive Z
+        const wBox = new THREE.Box3().setFromObject(node);
+        const wCenter = new THREE.Vector3();
+        wBox.getCenter(wCenter);
+
+        const isFront = wCenter.z > 0 || name.includes('front') || name.includes('fl') || name.includes('fr');
+        if (isFront) {
+          frontWheelsRef.current.push(node);
+        } else {
+          rearWheelsRef.current.push(node);
         }
       }
     });
 
-    return { clone, scaleMultiplier, centerOffset: center };
-  }, [scene]);
-
-  // Rotate wheels if wheels are detected in GLB
-  useEffect(() => {
-    const nodes = wheelNodes.current;
-    nodes.fl.forEach((node) => {
-      node.rotation.y = steerAngle;
-      node.rotation.x = wheelRotation;
+    console.log(`[CarModel] Successfully configured: ${fileName}`, {
+      finalLength: TARGET_CAR_LENGTH,
+      scale: scaleMultiplier.toFixed(4),
+      frontWheels: frontWheelsRef.current.length,
+      rearWheels: rearWheelsRef.current.length
     });
-    nodes.fr.forEach((node) => {
-      node.rotation.y = steerAngle;
-      node.rotation.x = wheelRotation;
-    });
-    nodes.rl.forEach((node) => {
-      node.rotation.x = wheelRotation;
-    });
-    nodes.rr.forEach((node) => {
-      node.rotation.x = wheelRotation;
-    });
-  }, [steerAngle, wheelRotation]);
 
-  return (
-    <group ref={modelRef} scale={processedScene.scaleMultiplier}>
-      <primitive object={processedScene.clone} />
-    </group>
-  );
-}
+    return { wrapper };
+  }, [scene, url]);
 
-/**
- * Clean Waiting Placeholder:
- * Minimal neon chassis footprint indicator shown while waiting for user's car GLB.
- * No procedural car body geometry is generated.
- */
-function AwaitingCarPlaceholder() {
-  return (
-    <group position={[0, 0.35, 0]}>
-      {/* Sleek minimalist chassis perimeter line */}
-      <lineSegments>
-        <edgesGeometry args={[new THREE.BoxGeometry(1.9, 0.5, 4.3)]} />
-        <lineBasicMaterial color="#00f0ff" linewidth={2} transparent opacity={0.7} />
-      </lineSegments>
+  // High-performance 60-120 FPS wheel animation
+  useFrame(() => {
+    const front = frontWheelsRef.current;
+    for (let i = 0; i < front.length; i++) {
+      front[i].rotation.y = steerAngle;
+      front[i].rotation.x = wheelRotation;
+    }
+    const rear = rearWheelsRef.current;
+    for (let i = 0; i < rear.length; i++) {
+      rear[i].rotation.x = wheelRotation;
+    }
+  });
 
-      {/* Cyber Neon Floor Plate */}
-      <mesh position={[0, -0.22, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[1.85, 4.2]} />
-        <meshBasicMaterial color="#00f0ff" transparent opacity={0.12} />
-      </mesh>
-
-      {/* Forward Heading Arrow Decal */}
-      <mesh position={[0, -0.2, 0.8]} rotation={[-Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.35, 0.8, 3]} />
-        <meshBasicMaterial color="#00f0ff" transparent opacity={0.5} />
-      </mesh>
-
-      {/* 4 Minimalist Wheel Locators */}
-      {[
-        [-0.95, 0, 1.35],
-        [0.95, 0, 1.35],
-        [-0.95, 0, -1.35],
-        [0.95, 0, -1.35]
-      ].map((pos, idx) => (
-        <group key={idx} position={pos}>
-          <lineSegments>
-            <edgesGeometry args={[new THREE.CylinderGeometry(0.36, 0.36, 0.3, 16)]} />
-            <lineBasicMaterial color="#00e5ff" transparent opacity={0.6} />
-          </lineSegments>
-        </group>
-      ))}
-    </group>
-  );
+  return <primitive object={adapted.wrapper} />;
 }
 
 export function CarModel({
@@ -143,40 +235,35 @@ export function CarModel({
   isDrifting = false,
   headlightsOn = true
 }) {
-  const customModelPath = useGameStore((s) => s.carModelPath);
+  const carModelPath = useGameStore((s) => s.carModelPath);
 
   return (
     <group>
-      {/* If user provided a GLB car model, load and render it! */}
-      {customModelPath ? (
-        <CustomCarGLB
-          url={customModelPath}
+      {carModelPath && (
+        <UniversalCarGLB
+          url={carModelPath}
           steerAngle={steerAngle}
           wheelRotation={wheelRotation}
-          isBraking={isBraking}
         />
-      ) : (
-        /* Clean placeholder while waiting for user's car GLB in the next prompt */
-        <AwaitingCarPlaceholder />
       )}
 
-      {/* High-Beam Projected Headlights for night driving */}
+      {/* Projected High-Beam Headlights */}
       {headlightsOn && (
         <>
           <spotLight
-            position={[-0.7, 0.45, 2.1]}
-            target-position={[-0.7, -0.6, 50]}
+            position={[-0.75, 0.45, 2.15]}
+            target-position={[-0.75, -0.6, 50]}
             color="#eaf5ff"
-            intensity={40}
+            intensity={42}
             distance={65}
             angle={0.52}
             penumbra={0.6}
           />
           <spotLight
-            position={[0.7, 0.45, 2.1]}
-            target-position={[0.7, -0.6, 50]}
+            position={[0.75, 0.45, 2.15]}
+            target-position={[0.75, -0.6, 50]}
             color="#eaf5ff"
-            intensity={40}
+            intensity={42}
             distance={65}
             angle={0.52}
             penumbra={0.6}
@@ -184,10 +271,21 @@ export function CarModel({
         </>
       )}
 
-      {/* Nitro Boost Thruster Glow */}
+      {/* Nitro Boost Thruster Flame */}
       {isNitroActive && (
-        <group position={[0, 0.3, -2.1]}>
-          <pointLight color="#00f0ff" intensity={8} distance={6} />
+        <group position={[0, 0.35, -2.25]}>
+          <pointLight color="#00f0ff" intensity={14} distance={9} />
+          <mesh rotation={[-Math.PI / 2, 0, 0]}>
+            <coneGeometry args={[0.16, 1.5, 16]} />
+            <meshBasicMaterial color="#00e5ff" transparent opacity={0.85} />
+          </mesh>
+        </group>
+      )}
+
+      {/* Taillight Brake Glow */}
+      {isBraking && (
+        <group position={[0, 0.5, -2.25]}>
+          <pointLight color="#ff0022" intensity={12} distance={6} />
         </group>
       )}
     </group>

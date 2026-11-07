@@ -16,8 +16,8 @@ export const inputState = {
   nitro: false
 };
 
-// Spawn location: Main Boulevard (x: 10, y: 0.4, z: -9), facing +X
-const SPAWN_POS = new THREE.Vector3(10, 0.4, -8.9);
+// Spawn location: Dead Center of Main Boulevard (x: 10, y: 0.3, z: -5.4), facing +X down the road
+const SPAWN_POS = new THREE.Vector3(10, 0.3, -5.4);
 const SPAWN_ROT_Y = Math.PI / 2;
 
 export function Car() {
@@ -210,10 +210,18 @@ export function Car() {
       s.steerAngle = THREE.MathUtils.lerp(s.steerAngle, 0, 8.5 * dt);
     }
 
+    // Read active car tuning parameters
+    const tuning = useGameStore.getState().carTuning || {
+      maxSpeed: 64,
+      accelRate: 19,
+      gripFactor: 0.9,
+      turnMultiplier: 1.0
+    };
+
     // --- 3. ACCELERATION & BRAKING ---
-    const maxForwardSpeed = 64 * nitroMultiplier;
+    const maxForwardSpeed = (tuning.maxSpeed || 64) * nitroMultiplier;
     const maxReverseSpeed = -15;
-    const accelRate = 19 * nitroMultiplier;
+    const accelRate = (tuning.accelRate || 19) * nitroMultiplier;
     const brakeRate = 34;
     const naturalFriction = 3.6;
 
@@ -255,7 +263,7 @@ export function Car() {
 
     let turnRate = 0;
     if (Math.abs(s.speed) > 0.2) {
-      turnRate = s.steerAngle * (Math.abs(s.speed) / 5.5) * directionSign;
+      turnRate = s.steerAngle * (Math.abs(s.speed) / 5.5) * directionSign * (tuning.turnMultiplier || 1.0);
       if (inputState.handbrake && Math.abs(s.speed) > 5) {
         turnRate *= 1.85;
       }

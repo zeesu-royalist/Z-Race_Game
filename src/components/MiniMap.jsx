@@ -17,11 +17,11 @@ const MAP_BOUNDS = {
 
 // Pre-defined static road lines (allocated once)
 const LOOP_ROADS = [
-  [ [120, -9], [120, 200] ],
+  [ [120, -5.4], [120, 200] ],
   [ [120, 200], [-80, 200] ],
-  [ [-80, 200], [-80, -9] ],
-  [ [0, -9], [0, 240] ],
-  [ [-440, -9], [-440, 480] ],
+  [ [-80, 200], [-80, -5.4] ],
+  [ [0, -5.4], [0, 240] ],
+  [ [-440, -5.4], [-440, 480] ],
   [ [-440, 480], [-200, 480] ]
 ];
 
@@ -74,11 +74,11 @@ export function MiniMap() {
         ctx.stroke();
       }
 
-      // Main Boulevard Road (X: -480 to 160 at Z: -9)
+      // Main Boulevard Road (X: -480 to 160 at Z: -5.4)
       const bX1 = toRadarX(-480);
-      const bY1 = toRadarY(-9);
+      const bY1 = toRadarY(-5.4);
       const bX2 = toRadarX(160);
-      const bY2 = toRadarY(-9);
+      const bY2 = toRadarY(-5.4);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
       ctx.lineWidth = 5;
       ctx.beginPath();

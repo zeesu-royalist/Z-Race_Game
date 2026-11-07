@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import {
+  Car,
   Volume2,
   VolumeX,
   Camera,
@@ -30,6 +31,7 @@ export function ControlsOverlay() {
   const stopRace = useGameStore((s) => s.stopRace);
   const headlights = useGameStore((s) => s.headlights);
   const toggleHeadlights = useGameStore((s) => s.toggleHeadlights);
+  const carName = useGameStore((s) => s.carName);
 
   const [isGarageOpen, setIsGarageOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -64,12 +66,12 @@ export function ControlsOverlay() {
 
           {/* Garage / Car Customizer */}
           <button
-            className="action-pill"
+            className="action-pill car-selector-pill"
             onClick={() => setIsGarageOpen(true)}
-            title="Custom 3D Model & Garage"
+            title="Switch Car / Garage (Press to change car)"
           >
-            <Wrench size={16} />
-            <span>GARAGE</span>
+            <Car size={16} />
+            <span>{carName.toUpperCase()}</span>
           </button>
 
           {/* Camera View Switcher */}

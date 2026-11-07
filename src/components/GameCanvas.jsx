@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Sky, Html } from '@react-three/drei';
+import { Sky, Html, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../store/gameStore';
 import { CityMap } from './CityMap';
@@ -14,7 +14,7 @@ function LoadingScreen() {
       <div className="loading-card">
         <div className="loading-spinner"></div>
         <div className="loading-title">LOADING 3D CITY</div>
-        <div className="loading-subtitle">Preparing optimized roads & collision engine...</div>
+        <div className="loading-subtitle">Preparing optimized roads & supercars...</div>
       </div>
     </Html>
   );
@@ -51,6 +51,7 @@ function EnvironmentLights() {
         />
         <hemisphereLight skyColor="#ff9955" groundColor="#332211" intensity={0.65} />
         <fog attach="fog" args={['#a85c42', 80, 750]} />
+        <Environment preset="sunset" environmentIntensity={0.8} />
       </>
     );
   }
@@ -59,17 +60,18 @@ function EnvironmentLights() {
     return (
       <>
         <color attach="background" args={['#06080e']} />
-        <ambientLight intensity={0.22} color="#4466aa" />
+        <ambientLight intensity={0.25} color="#4466aa" />
         <directionalLight
           position={[70, 100, 70]}
-          intensity={0.5}
+          intensity={0.6}
           color="#99bbff"
           castShadow
           shadow-mapSize={[1024, 1024]}
           shadow-bias={-0.00015}
         />
-        <hemisphereLight skyColor="#0c1626" groundColor="#050608" intensity={0.3} />
+        <hemisphereLight skyColor="#0c1626" groundColor="#050608" intensity={0.35} />
         <fog attach="fog" args={['#070a12', 40, 500]} />
+        <Environment preset="night" environmentIntensity={0.5} />
       </>
     );
   }
@@ -102,6 +104,7 @@ function EnvironmentLights() {
       />
       <hemisphereLight skyColor="#87ceeb" groundColor="#3a4042" intensity={0.65} />
       <fog attach="fog" args={['#b8d8ea', 120, 850]} />
+      <Environment preset="city" environmentIntensity={0.85} />
     </>
   );
 }
@@ -120,8 +123,8 @@ export function GameCanvas() {
         toneMappingExposure: 1.15
       }}
     >
-      <EnvironmentLights />
       <Suspense fallback={<LoadingScreen />}>
+        <EnvironmentLights />
         <CityMap />
         <Car />
         <RacingSystem />

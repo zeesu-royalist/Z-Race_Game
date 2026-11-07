@@ -1,7 +1,17 @@
 import { create } from 'zustand';
+import { CAR_CATALOG, DEFAULT_CAR_ID } from '../config/cars';
+
+const defaultCar = CAR_CATALOG.find((c) => c.id === DEFAULT_CAR_ID) || CAR_CATALOG[0];
 
 export const useGameStore = create((set, get) => ({
-  // Car telemetry
+  // Active Car Selection
+  cars: [...CAR_CATALOG],
+  currentCarId: defaultCar.id,
+  carModelPath: defaultCar.modelPath,
+  carName: defaultCar.name,
+  carTuning: defaultCar.tuning,
+
+  // Car Telemetry
   speed: 0,
   rpm: 900,
   gear: '1',
@@ -12,22 +22,16 @@ export const useGameStore = create((set, get) => ({
   nitro: 100,
   isNitroActive: false,
   headlights: true,
-  carPosition: [10, 0.4, -9],
-  carRotation: 0, // Y rotation in radians
+  carPosition: [10, 0.3, -5.4],
+  carRotation: Math.PI / 2, // Facing boulevard +X
 
-  // Game Settings & Modes
-  cameraMode: 'chase', // 'chase' | 'action' | 'cockpit' | 'free'
-  timeOfDay: 'sunset', // 'day' | 'sunset' | 'night'
+  // Game Settings & Camera
+  cameraMode: 'chase',
+  timeOfDay: 'sunset',
   soundEnabled: true,
-  graphicsQuality: 'high', // 'high' | 'medium' | 'low'
   
-  // Custom Car Model configuration
-  carColor: '#e62e00', // Racing Red
-  carModelPath: null, // User can set custom GLB path e.g. '/cars-models/my_car.glb'
-  carName: 'Z-GT Apex Hypercar',
-
   // Racing & Checkpoints
-  gameMode: 'freeroam', // 'freeroam' | 'race'
+  gameMode: 'freeroam',
   raceActive: false,
   lapTime: 0,
   bestLapTime: null,
@@ -35,25 +39,78 @@ export const useGameStore = create((set, get) => ({
   totalCheckpoints: 8,
   raceFinished: false,
 
-  // Reset flag
+  // Reset Signal
   resetSignal: 0,
 
   // Actions
-  setSpeed: (speed) => set({ speed }),
-  setRPM: (rpm) => set({ rpm }),
-  setGear: (gear) => set({ gear }),
-  setDrifting: (isDrifting) => set({ isDrifting }),
-  addDriftScore: (points) => set((s) => ({
-    driftScore: s.driftScore + points,
-    totalDriftScore: s.totalDriftScore + points
-  })),
-  clearDriftScore: () => set({ driftScore: 0 }),
+  selectCar: (carId) => {
+    const { cars } = get();
+    const car = cars.find((c) => c.id === carId);
+    if (car) {
+      set({
+        currentCarId: car.id,
+        carModelPath: car.modelPath,
+        carName: car.name,
+        carTuning: car.tuning || defaultCar.tuning,
+        speed: 0,
+        rpm: 900
+      });
+      get().triggerReset();
+    }
+  },
+
+  // Auto-scan / Sync cars from public/cars-models/
+  syncCarsList: (newCarList) => {
+    if (!Array.isArray(newCarList) || newCarList.length === 0) return;
+    const { currentCarId } = get();
+
+    const currentExists = newCarList.some((c) => c.id === currentCarId);
+    const activeCar = currentExists
+      ? newCarList.find((c) => c.id === currentCarId)
+      : newCarList[0];
+
+    set({
+      cars: newCarList,
+      currentCarId: activeCar.id,
+      carModelPath: activeCar.modelPath,
+      carName: activeCar.name,
+      carTuning: activeCar.tuning || defaultCar.tuning
+    });
+  },
+
+  fetchCars: async () => {
+    try {
+      // 1. Try Dev API endpoint
+      const res = await fetch('/api/cars', { cache: 'no-cache' });
+      if (res.ok) {
+        const carList = await res.json();
+        if (Array.isArray(carList) && carList.length > 0) {
+          get().syncCarsList(carList);
+          return;
+        }
+      }
+    } catch (e) {
+      // Fallback
+    }
+
+    try {
+      // 2. Try static manifest
+      const resManifest = await fetch('/cars-manifest.json', { cache: 'no-cache' });
+      if (resManifest.ok) {
+        const carList = await resManifest.json();
+        if (Array.isArray(carList) && carList.length > 0) {
+          get().syncCarsList(carList);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch cars manifest:', e);
+    }
+  },
+
+  triggerReset: () => set((s) => ({ resetSignal: s.resetSignal + 1 })),
   setNitro: (nitro) => set({ nitro }),
   setNitroActive: (isNitroActive) => set({ isNitroActive }),
   toggleHeadlights: () => set((s) => ({ headlights: !s.headlights })),
-  setCarPosition: (pos) => set({ carPosition: pos }),
-  setCarRotation: (rot) => set({ carRotation: rot }),
-  
   setCameraMode: (mode) => set({ cameraMode: mode }),
   cycleCameraMode: () => {
     const modes = ['chase', 'action', 'cockpit', 'free'];
@@ -71,11 +128,10 @@ export const useGameStore = create((set, get) => ({
   },
 
   toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
-  setSoundEnabled: (enabled) => set({ soundEnabled: enabled }),
-  setCarColor: (carColor) => set({ carColor }),
-  setCarModelPath: (path) => set({ carModelPath: path }),
-
-  triggerReset: () => set((s) => ({ resetSignal: s.resetSignal + 1 })),
+  addDriftScore: (points) => set((s) => ({
+    driftScore: s.driftScore + points,
+    totalDriftScore: s.totalDriftScore + points
+  })),
 
   // Race Actions
   startRace: () => set({
@@ -94,7 +150,6 @@ export const useGameStore = create((set, get) => ({
     const { currentCheckpoint, totalCheckpoints, lapTime, bestLapTime } = get();
     if (checkpointIdx === currentCheckpoint) {
       if (currentCheckpoint + 1 >= totalCheckpoints) {
-        // Finished race!
         const newBest = bestLapTime === null ? lapTime : Math.min(bestLapTime, lapTime);
         set({
           currentCheckpoint: totalCheckpoints,
@@ -113,4 +168,8 @@ export const useGameStore = create((set, get) => ({
     }
   }
 }));
+
+if (typeof window !== 'undefined') {
+  window.useGameStore = useGameStore;
+}
 
