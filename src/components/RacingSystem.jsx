@@ -5,16 +5,16 @@ import confetti from 'canvas-confetti';
 import { useGameStore } from '../store/gameStore';
 import { soundManager } from '../utils/AudioSystem';
 
-// Checkpoints defining the Grand Prix circuit
+// Checkpoints defining the Grand Prix circuit on real verified road surfaces
 export const CIRCUIT_CHECKPOINTS = [
-  { id: 0, pos: [10, 1.2, -5.4], name: 'Start / Finish' },
-  { id: 1, pos: [80, 1.2, -5.4], name: 'East Boulevard' },
-  { id: 2, pos: [120, 1.2, 40], name: 'Turn 1 Apex' },
-  { id: 3, pos: [120, 1.2, 120], name: 'High-Speed Straight' },
-  { id: 4, pos: [90, 1.2, 200], name: 'Midtown Chicane' },
-  { id: 5, pos: [10, 1.2, 235], name: 'North Avenue' },
-  { id: 6, pos: [-70, 1.2, 220], name: 'Hairpin Turn' },
-  { id: 7, pos: [-50, 1.2, -5.4], name: 'Final Sector' }
+  { id: 0, pos: [-3.0, 1.2, 10.0], name: 'Start / Finish' },
+  { id: 1, pos: [-3.0, 1.2, 60.0], name: 'Boulevard Sprint' },
+  { id: 2, pos: [-5.0, 1.2, 95.0], name: 'North Junction' },
+  { id: 3, pos: [-25.0, 1.2, 135.0], name: 'North Hairpin' },
+  { id: 4, pos: [-5.0, 1.2, 150.0], name: 'North Loop Apex' },
+  { id: 5, pos: [8.0, 1.2, 110.0], name: 'East Return Straight' },
+  { id: 6, pos: [-3.0, 1.2, 0.0], name: 'South Boulevard Run' },
+  { id: 7, pos: [-25.0, 1.2, -18.0], name: 'South Hairpin Apex' }
 ];
 
 export function RacingSystem() {

@@ -17,6 +17,112 @@ const KNOWN_ORIENTATIONS = {
   'ferrari_488_pista_widebody.glb': [0, -Math.PI / 2, 0]
 };
 
+// Lightweight, Zero-Allocation Instanced Tire Smoke Particle System
+function TireSmokeEmitter({ isDrifting }) {
+  const maxParticles = 50;
+  const meshRef = useRef();
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  const particles = useRef(
+    Array.from({ length: maxParticles }, () => ({
+      pos: new THREE.Vector3(0, -999, 0),
+      vel: new THREE.Vector3(),
+      scale: 0.1,
+      life: 1.0,
+      maxLife: 0.75,
+      active: false
+    }))
+  );
+
+  const nextSpawnIndex = useRef(0);
+  const spawnTimer = useRef(0);
+
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.05);
+    const pList = particles.current;
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    spawnTimer.current += dt;
+    if (isDrifting && spawnTimer.current > 0.035) {
+      spawnTimer.current = 0;
+      const sides = [-0.75, 0.75];
+      for (let s = 0; s < 2; s++) {
+        const xOff = sides[s];
+        const p = pList[nextSpawnIndex.current % maxParticles];
+        nextSpawnIndex.current++;
+        p.active = true;
+        p.life = 0;
+        p.maxLife = 0.5 + Math.random() * 0.3;
+        p.scale = 0.2 + Math.random() * 0.15;
+        p.pos.set(
+          xOff + (Math.random() - 0.5) * 0.2,
+          0.12 + Math.random() * 0.06,
+          -1.75 - Math.random() * 0.25
+        );
+        p.vel.set(
+          (Math.random() - 0.5) * 0.6 + (xOff > 0 ? 0.35 : -0.35),
+          0.7 + Math.random() * 0.6,
+          -1.4 - Math.random() * 1.2
+        );
+      }
+    }
+
+    let needsUpdate = false;
+    for (let i = 0; i < maxParticles; i++) {
+      const p = pList[i];
+      if (!p.active) {
+        dummy.position.set(0, -999, 0);
+        dummy.scale.setScalar(0);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+        continue;
+      }
+
+      needsUpdate = true;
+      p.life += dt;
+      if (p.life >= p.maxLife) {
+        p.active = false;
+        dummy.position.set(0, -999, 0);
+        dummy.scale.setScalar(0);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+        continue;
+      }
+
+      const progress = p.life / p.maxLife;
+      p.pos.x += p.vel.x * dt;
+      p.pos.y += p.vel.y * dt;
+      p.pos.z += p.vel.z * dt;
+      const currentScale = p.scale * (1.0 + progress * 2.6);
+
+      dummy.position.copy(p.pos);
+      dummy.scale.setScalar(currentScale);
+      dummy.rotation.x += dt * 0.6;
+      dummy.rotation.y += dt * 0.9;
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+
+    if (needsUpdate || isDrifting) {
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  });
+
+  return (
+    <instancedMesh ref={meshRef} args={[null, null, maxParticles]}>
+      <dodecahedronGeometry args={[0.28, 0]} />
+      <meshStandardMaterial
+        color="#d2dce6"
+        transparent
+        opacity={0.34}
+        roughness={0.9}
+        depthWrite={false}
+      />
+    </instancedMesh>
+  );
+}
+
 /**
  * Universal Global Car Adapter
  * Automatically scales, centers, orients any 3D car GLB,
@@ -246,6 +352,9 @@ export function CarModel({
           wheelRotation={wheelRotation}
         />
       )}
+
+      {/* Dynamic Tire Smoke Particles when Drifting */}
+      <TireSmokeEmitter isDrifting={isDrifting} />
 
       {/* Projected High-Beam Headlights */}
       {headlightsOn && (

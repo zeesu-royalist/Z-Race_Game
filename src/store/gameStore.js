@@ -22,8 +22,8 @@ export const useGameStore = create((set, get) => ({
   nitro: 100,
   isNitroActive: false,
   headlights: true,
-  carPosition: [10, 0.3, -5.4],
-  carRotation: Math.PI / 2, // Facing boulevard +X
+  carPosition: [-3.0, 0.3, 10.0],
+  carRotation: 0, // Facing boulevard +Z
 
   // Game Settings & Camera
   cameraMode: 'chase',

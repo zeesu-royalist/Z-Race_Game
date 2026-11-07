@@ -67,12 +67,12 @@ export function CityMap() {
     console.log(`[Z-Race] City loaded & optimized with ${cityColliders.length} collision meshes.`);
   }, [scene]);
 
-  // Streetlights along the main boulevard (flanking road center at z: -5.4)
+  // Streetlights along the main boulevard (flanking road center at x: -3.0)
   const streetLightPositions = useMemo(() => {
     const list = [];
-    for (let x = -400; x <= 140; x += 70) {
-      list.push([x, 8, -15]);
-      list.push([x, 8, 4]);
+    for (let z = -30; z <= 150; z += 30) {
+      list.push([-17, 8, z]);
+      list.push([11, 8, z]);
     }
     return list;
   }, []);
@@ -90,36 +90,36 @@ export function CityMap() {
         <meshStandardMaterial color="#0e1318" roughness={0.9} />
       </mesh>
 
-      {/* Starting Grid Line Decal dead center on the road */}
-      <group position={[10, 0.05, -5.4]}>
-        {/* Checkered Start Line */}
+      {/* Starting Grid Line Decal dead center on the 33m wide boulevard */}
+      <group position={[-3.0, 0.05, 10.0]}>
+        {/* Checkered Start Line (18m wide across boulevard) */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-          <planeGeometry args={[2.5, 9.5]} />
+          <planeGeometry args={[18.0, 3.0]} />
           <meshStandardMaterial color="#ffffff" roughness={0.4} metalness={0.1} />
         </mesh>
         {/* Yellow Grid Marks */}
-        {[-3, 0, 3].map((offsetZ, i) => (
-          <mesh key={i} position={[0, 0.01, offsetZ]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[2.0, 0.35]} />
+        {[-6, -2, 2, 6].map((offsetX, i) => (
+          <mesh key={i} position={[offsetX, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.35, 2.5]} />
             <meshStandardMaterial color="#ffcc00" emissive="#ffaa00" emissiveIntensity={0.3} />
           </mesh>
         ))}
         {/* Start Line Gantry */}
         <group position={[0, 0, 0]}>
-          <mesh position={[0, 4, -5.5]} castShadow>
-            <cylinderGeometry args={[0.2, 0.2, 8]} />
+          <mesh position={[-9.5, 4, 0]} castShadow>
+            <cylinderGeometry args={[0.22, 0.22, 8]} />
             <meshStandardMaterial color="#222" metalness={0.8} roughness={0.3} />
           </mesh>
-          <mesh position={[0, 4, 5.5]} castShadow>
-            <cylinderGeometry args={[0.2, 0.2, 8]} />
+          <mesh position={[9.5, 4, 0]} castShadow>
+            <cylinderGeometry args={[0.22, 0.22, 8]} />
             <meshStandardMaterial color="#222" metalness={0.8} roughness={0.3} />
           </mesh>
           <mesh position={[0, 8, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[0.18, 0.18, 11.4]} />
+            <cylinderGeometry args={[0.2, 0.2, 19.5]} />
             <meshStandardMaterial color="#333" metalness={0.8} roughness={0.3} />
           </mesh>
-          <mesh position={[0, 7.2, 0]} rotation={[0, Math.PI / 2, 0]}>
-            <boxGeometry args={[0.2, 1.4, 9]} />
+          <mesh position={[0, 7.2, 0]}>
+            <boxGeometry args={[16.0, 1.4, 0.25]} />
             <meshStandardMaterial
               color="#0d1b2a"
               emissive="#00f0ff"

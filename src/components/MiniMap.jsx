@@ -3,27 +3,15 @@ import { useGameStore } from '../store/gameStore';
 import { CIRCUIT_CHECKPOINTS } from './RacingSystem';
 import { Compass } from 'lucide-react';
 
-// City Map real-world extents:
-// X: -660 to 180 (span: 840)
-// Z: -270 to 540 (span: 810)
+// City Map racing circuit extents:
 const MAP_BOUNDS = {
-  minX: -660,
-  maxX: 180,
-  minZ: -270,
-  maxZ: 540,
-  spanX: 840,
-  spanZ: 810
+  minX: -80,
+  maxX: 40,
+  minZ: -45,
+  maxZ: 175,
+  spanX: 120,
+  spanZ: 220
 };
-
-// Pre-defined static road lines (allocated once)
-const LOOP_ROADS = [
-  [ [120, -5.4], [120, 200] ],
-  [ [120, 200], [-80, 200] ],
-  [ [-80, 200], [-80, -5.4] ],
-  [ [0, -5.4], [0, 240] ],
-  [ [-440, -5.4], [-440, 480] ],
-  [ [-440, 480], [-200, 480] ]
-];
 
 export function MiniMap() {
   const canvasRef = useRef(null);
@@ -74,27 +62,30 @@ export function MiniMap() {
         ctx.stroke();
       }
 
-      // Main Boulevard Road (X: -480 to 160 at Z: -5.4)
-      const bX1 = toRadarX(-480);
-      const bY1 = toRadarY(-5.4);
-      const bX2 = toRadarX(160);
-      const bY2 = toRadarY(-5.4);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
-      ctx.lineWidth = 5;
+      // Main Grand Boulevard (Z: -35 to 160 at X: -3.0)
+      const bX1 = toRadarX(-3.0);
+      const bY1 = toRadarY(-35);
+      const bX2 = toRadarX(-3.0);
+      const bY2 = toRadarY(160);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 6;
       ctx.beginPath();
       ctx.moveTo(bX1, bY1);
       ctx.lineTo(bX2, bY2);
       ctx.stroke();
 
-      // District roads
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
-      ctx.lineWidth = 3;
-      LOOP_ROADS.forEach(([start, end]) => {
-        ctx.beginPath();
-        ctx.moveTo(toRadarX(start[0]), toRadarY(start[1]));
-        ctx.lineTo(toRadarX(end[0]), toRadarY(end[1]));
-        ctx.stroke();
+      // Circuit Track Connecting Lines
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      CIRCUIT_CHECKPOINTS.forEach((cp, idx) => {
+        const px = toRadarX(cp.pos[0]);
+        const py = toRadarY(cp.pos[2]);
+        if (idx === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
       });
+      ctx.closePath();
+      ctx.stroke();
 
       // Checkpoints
       if (raceActive) {

@@ -16,9 +16,9 @@ export const inputState = {
   nitro: false
 };
 
-// Spawn location: Dead Center of Main Boulevard (x: 10, y: 0.3, z: -5.4), facing +X down the road
-const SPAWN_POS = new THREE.Vector3(10, 0.3, -5.4);
-const SPAWN_ROT_Y = Math.PI / 2;
+// Spawn location: Dead Center of the Wide Boulevard (x: -3.0, y: 0.3, z: 10.0), facing +Z straight down the highway
+const SPAWN_POS = new THREE.Vector3(-3.0, 0.3, 10.0);
+const SPAWN_ROT_Y = 0;
 
 export function Car() {
   const carGroup = useRef();
