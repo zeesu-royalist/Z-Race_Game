@@ -14,6 +14,7 @@ export const cityColliders = [];
 export function CityMap() {
   const { scene } = useGLTF('/city-models/terrain_retextured.glb');
   const cityRef = useRef();
+  const floorRef = useRef();
 
   useEffect(() => {
     cityColliders.length = 0; // Clear previous
@@ -62,18 +63,35 @@ export function CityMap() {
       }
     });
 
-    console.log(`[Z-Race] City loaded & optimized with ${cityColliders.length} collision meshes.`);
+    // Add expansive 3.2km safety ground to colliders for 100% gap-free open-world driving
+    if (floorRef.current && floorRef.current.geometry) {
+      try {
+        if (!floorRef.current.geometry.boundsTree) {
+          floorRef.current.geometry.computeBoundsTree({ maxLeafTris: 15 });
+        }
+        cityColliders.push(floorRef.current);
+      } catch (e) {
+        console.warn('BVH computation skipped for safety floor:', e);
+      }
+    }
+
+    console.log(`[Z-Race] City loaded & optimized with ${cityColliders.length} collision meshes across open world.`);
   }, [scene]);
 
   return (
     <group ref={cityRef}>
-      {/* 3D City GLB Model */}
+      {/* 3D City GLB Model (X: -542m to +273m, Z: -660m to +188m) */}
       <primitive object={scene} />
 
-      {/* Safety Floor below the city (prevents falling through if off-road) */}
-      <mesh position={[-235, -2, 135]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[1400, 1400]} />
-        <meshStandardMaterial color="#0e1318" roughness={0.9} />
+      {/* Fully unlocked open-world ground base centered at city center (-135m, -240m) spanning 3200m */}
+      <mesh
+        ref={floorRef}
+        position={[-135, -0.05, -240]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
+        <planeGeometry args={[3200, 3200]} />
+        <meshStandardMaterial color="#11161d" roughness={0.88} metalness={0.12} />
       </mesh>
     </group>
   );

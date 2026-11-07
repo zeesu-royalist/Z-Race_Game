@@ -7,6 +7,7 @@ import { CityMap } from './CityMap';
 import { Car } from './Car';
 import { CameraRig } from './CameraRig';
 import { RacingSystem } from './RacingSystem';
+import { TireSkidmarks } from './TireSkidmarks';
 
 function LoadingScreen() {
   return (
@@ -42,15 +43,15 @@ function EnvironmentLights() {
           castShadow
           shadow-mapSize={[1024, 1024]}
           shadow-camera-near={1}
-          shadow-camera-far={400}
-          shadow-camera-left={-70}
-          shadow-camera-right={70}
-          shadow-camera-top={70}
-          shadow-camera-bottom={-70}
+          shadow-camera-far={600}
+          shadow-camera-left={-100}
+          shadow-camera-right={100}
+          shadow-camera-top={100}
+          shadow-camera-bottom={-100}
           shadow-bias={-0.00015}
         />
         <hemisphereLight skyColor="#ff9955" groundColor="#332211" intensity={0.65} />
-        <fog attach="fog" args={['#a85c42', 80, 750]} />
+        <fog attach="fog" args={['#a85c42', 150, 1500]} />
         <Environment preset="sunset" environmentIntensity={0.8} />
       </>
     );
@@ -70,7 +71,7 @@ function EnvironmentLights() {
           shadow-bias={-0.00015}
         />
         <hemisphereLight skyColor="#0c1626" groundColor="#050608" intensity={0.35} />
-        <fog attach="fog" args={['#070a12', 40, 500]} />
+        <fog attach="fog" args={['#070a12', 120, 1400]} />
         <Environment preset="night" environmentIntensity={0.5} />
       </>
     );
@@ -95,15 +96,15 @@ function EnvironmentLights() {
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={1}
-        shadow-camera-far={420}
-        shadow-camera-left={-75}
-        shadow-camera-right={75}
-        shadow-camera-top={75}
-        shadow-camera-bottom={-75}
+        shadow-camera-far={600}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
         shadow-bias={-0.00015}
       />
       <hemisphereLight skyColor="#87ceeb" groundColor="#3a4042" intensity={0.65} />
-      <fog attach="fog" args={['#b8d8ea', 120, 850]} />
+      <fog attach="fog" args={['#b8d8ea', 200, 1600]} />
       <Environment preset="city" environmentIntensity={0.85} />
     </>
   );
@@ -126,6 +127,7 @@ export function GameCanvas() {
       <Suspense fallback={<LoadingScreen />}>
         <EnvironmentLights />
         <CityMap />
+        <TireSkidmarks />
         <Car />
         <RacingSystem />
       </Suspense>

@@ -25,6 +25,7 @@ export function Car() {
 
   // Zustand state hooks (event-driven)
   const resetSignal = useGameStore((s) => s.resetSignal);
+  const currentCarId = useGameStore((s) => s.currentCarId);
   const headlights = useGameStore((s) => s.headlights);
   const soundEnabled = useGameStore((s) => s.soundEnabled);
 
@@ -177,6 +178,15 @@ export function Car() {
     soundManager.setEnabled(soundEnabled);
   }, [soundEnabled]);
 
+  // Safe car model swap in-place without jarring physics glitches
+  useEffect(() => {
+    const s = state.current;
+    s.speed = 0;
+    s.angularVelocity = 0;
+    s.steerAngle = 0;
+    s.verticalVelocity = 0;
+  }, [currentCarId]);
+
   // Highly Optimized 60-120 FPS Vehicle Physics Loop
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05); // Clamp dt to prevent tunneling
@@ -299,41 +309,68 @@ export function Car() {
       s.position.z += m.rightVec.z * slipAmount;
     }
 
-    // --- 6. BVH SUSPENSION & OBSTACLE RAYCAST ---
+    // --- 6. BVH SUSPENSION & MULTI-TIER ROAD/BRIDGE RAYCAST ---
     if (cityColliders.length > 0) {
+      // Ray originates just above wheel level (0.45m), strictly below overhead bridges/metro lines
       m.rayOrigin.copy(s.position);
-      m.rayOrigin.y += 2.5;
+      m.rayOrigin.y += 0.45;
       m.raycaster.set(m.rayOrigin, m.downVec);
-      m.raycaster.far = 12.0;
+      m.raycaster.far = 25.0;
 
       const groundHits = m.raycaster.intersectObjects(cityColliders, true);
 
-      if (groundHits.length > 0) {
-        const hit = groundHits[0];
-        const groundHeight = hit.point.y;
-        const targetY = groundHeight + 0.02;
+      // Find the highest valid upward drivable surface directly below the car
+      let validHit = null;
+      for (let i = 0; i < groundHits.length; i++) {
+        const h = groundHits[i];
+        // Must be upward-facing surface (ignore bridge undersides/ceilings/vertical walls)
+        // AND must be at or below current car step height (cannot step up onto overhead bridges)
+        if (h.normal && h.normal.y > 0.45 && h.point.y <= s.position.y + 0.35) {
+          validHit = h;
+          break; // First match is closest to ray origin (highest surface directly under car)
+        }
+      }
 
-        if (s.position.y <= targetY + 0.35) {
-          s.position.y = THREE.MathUtils.lerp(s.position.y, targetY, 20.0 * dt);
+      if (validHit) {
+        const groundHeight = validHit.point.y;
+        const targetY = groundHeight + 0.02;
+        const diff = s.position.y - targetY;
+
+        // Grounded within suspension travel (-0.35m to +0.45m)
+        if (diff <= 0.45) {
+          s.position.y = THREE.MathUtils.lerp(s.position.y, targetY, 24.0 * dt);
           s.verticalVelocity = 0;
           s.isGrounded = true;
 
-          if (hit.normal) {
-            m.normalVec.copy(hit.normal);
+          if (validHit.normal) {
+            m.normalVec.copy(validHit.normal);
             const targetPitch = m.normalVec.z * Math.cos(s.rotationY) + m.normalVec.x * Math.sin(s.rotationY);
             s.pitch = THREE.MathUtils.lerp(s.pitch, -targetPitch * 0.4, 10.0 * dt);
           }
         } else {
+          // Airborne: jumping or falling off a ledge/bridge
           s.isGrounded = false;
           s.verticalVelocity -= 22.0 * dt;
           s.position.y += s.verticalVelocity * dt;
+          if (s.position.y <= targetY) {
+            s.position.y = targetY;
+            s.verticalVelocity = 0;
+            s.isGrounded = true;
+          }
         }
       } else {
-        if (s.position.y > 0.05) {
+        // Fallback: apply gravity towards safety base floor
+        if (s.position.y > 0.0) {
+          s.isGrounded = false;
           s.verticalVelocity -= 22.0 * dt;
-          s.position.y = Math.max(0.05, s.position.y + s.verticalVelocity * dt);
+          s.position.y = Math.max(0.0, s.position.y + s.verticalVelocity * dt);
+          if (s.position.y <= 0.0) {
+            s.position.y = 0.0;
+            s.verticalVelocity = 0;
+            s.isGrounded = true;
+          }
         } else {
-          s.position.y = 0.05;
+          s.position.y = 0.0;
           s.verticalVelocity = 0;
           s.isGrounded = true;
         }
@@ -342,7 +379,7 @@ export function Car() {
       // Wall / Building collision
       if (Math.abs(s.speed) > 2) {
         m.wallOrigin.copy(s.position);
-        m.wallOrigin.y += 0.5;
+        m.wallOrigin.y += 0.85; // Clears curbs, sidewalks, and road dividers!
         m.checkDir.copy(m.forwardVec);
         if (s.speed < 0) m.checkDir.negate();
 
@@ -350,23 +387,32 @@ export function Car() {
         m.wallRaycaster.far = 2.4;
 
         const wallHits = m.wallRaycaster.intersectObjects(cityColliders, true);
-        if (wallHits.length > 0 && wallHits[0].distance < 2.2) {
+        if (wallHits.length > 0 && wallHits[0].distance < 2.0) {
           const hitNorm = wallHits[0].normal;
-          if (hitNorm && Math.abs(hitNorm.y) < 0.6) {
-            soundManager.playCrash(Math.abs(s.speed) / 25);
-            s.speed = -s.speed * 0.35;
-            s.position.x += hitNorm.x * 0.3;
-            s.position.z += hitNorm.z * 0.3;
+          if (hitNorm && Math.abs(hitNorm.y) < 0.55) {
+            const dot = m.checkDir.dot(hitNorm);
+            if (dot < -0.65) {
+              soundManager.playCrash(Math.abs(s.speed) / 25);
+              s.speed = -s.speed * 0.25;
+              s.position.x += hitNorm.x * 0.35;
+              s.position.z += hitNorm.z * 0.35;
+            } else {
+              // Glancing scrape: smoothly slide along the wall
+              soundManager.playCrash(Math.abs(s.speed) / 50);
+              s.speed *= 0.8;
+              s.position.x += hitNorm.x * 0.2;
+              s.position.z += hitNorm.z * 0.2;
+            }
           }
         }
       }
     }
 
-    // Safety boundary clamp (850m x 816m world)
-    if (s.position.x < -645) { s.position.x = -640; s.speed = 0; }
-    if (s.position.x > 175) { s.position.x = 170; s.speed = 0; }
-    if (s.position.z < -260) { s.position.z = -255; s.speed = 0; }
-    if (s.position.z > 530) { s.position.z = 525; s.speed = 0; }
+    // Completely unlocked open-world city boundary (1600m x 1600m free-roam buffer)
+    if (s.position.x < -800) { s.position.x = -795; s.speed = 0; }
+    if (s.position.x > 500) { s.position.x = 495; s.speed = 0; }
+    if (s.position.z < -900) { s.position.z = -895; s.speed = 0; }
+    if (s.position.z > 400) { s.position.z = 395; s.speed = 0; }
 
     // Wheel rotation
     const wheelCircumference = 2 * Math.PI * 0.36;

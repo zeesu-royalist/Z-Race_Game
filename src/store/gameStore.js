@@ -43,7 +43,7 @@ export const useGameStore = create((set, get) => ({
   resetSignal: 0,
 
   // Actions
-  selectCar: (carId) => {
+  selectCar: (carId, resetToSpawn = false) => {
     const { cars } = get();
     const car = cars.find((c) => c.id === carId);
     if (car) {
@@ -55,7 +55,9 @@ export const useGameStore = create((set, get) => ({
         speed: 0,
         rpm: 900
       });
-      get().triggerReset();
+      if (resetToSpawn) {
+        get().triggerReset();
+      }
     }
   },
 

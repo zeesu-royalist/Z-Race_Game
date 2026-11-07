@@ -235,26 +235,74 @@ html, body, #root {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(10, 16, 26, 0.85);
-  border: 1px solid rgba(0, 240, 255, 0.25);
+  background: rgba(10, 16, 26, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.3);
   border-bottom: none;
   padding: 4px 10px;
   border-radius: 12px 12px 0 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 0.8px;
   color: var(--primary-cyan);
+}
+
+.district-tag {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.8px;
+}
+
+.unlocked-pill {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 8px;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgba(34, 255, 136, 0.18);
+  border: 1px solid #22ff88;
+  color: #22ff88;
+  letter-spacing: 0.5px;
 }
 
 .north-tag {
   color: #ff3344;
   font-weight: 900;
-  margin-left: 4px;
+  margin-left: 2px;
 }
 
 .minimap-canvas {
-  border-radius: 16px 0 16px 16px;
+  border-radius: 0;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+}
+
+.minimap-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(10, 16, 26, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-top: none;
+  padding: 3px 8px;
+  border-radius: 0 0 12px 12px;
+  font-size: 9px;
+  font-family: 'Orbitron', sans-serif;
+}
+
+.coords-tag {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 8.5px;
+  font-weight: 600;
+}
+
+.roam-tag {
+  color: var(--primary-cyan);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
 }
 
 /* ===== HUD & SPEEDOMETER CLUSTER ===== */
