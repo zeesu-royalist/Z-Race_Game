@@ -2,9 +2,8 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameStore } from '../store/gameStore';
-import { DEVICE_TIER } from '../utils/deviceTier';
 
-const MAX_SKID_MARKS = DEVICE_TIER.isLowTier ? 60 : 120;
+const MAX_SKID_MARKS = 80;
 
 /**
  * Ultra-Lightweight, Zero-GC Instanced Tire Skidmark Trail

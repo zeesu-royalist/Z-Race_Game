@@ -4,7 +4,6 @@ import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '../store/gameStore';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { DEVICE_TIER } from '../utils/deviceTier';
 
 // Target standard sports car length in meters (proportionally balanced to city road lanes)
 const TARGET_CAR_LENGTH = 3.9;
@@ -21,7 +20,7 @@ const KNOWN_ORIENTATIONS = {
 
 // Lightweight, Zero-Allocation Instanced Tire Smoke Particle System (Optimized for Low-End GPUs)
 function TireSmokeEmitter({ isDrifting }) {
-  const maxParticles = DEVICE_TIER.isLowTier ? 25 : 50;
+  const maxParticles = 35;
   const meshRef = useRef();
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
@@ -142,7 +141,7 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     rearWheelsRef.current = [];
 
     const fileName = (url || '').split('/').pop();
-    const maxAnisotropy = DEVICE_TIER.isLowTier ? 1 : 2;
+    const maxAnisotropy = 2;
 
     // 1. Material Adaptation & Color Correction
     root.traverse((node) => {
@@ -399,8 +398,8 @@ export function CarModel({
             position={[-0.64, 0.38, 1.82]}
             target-position={[-0.64, -0.6, 40]}
             color="#eaf5ff"
-            intensity={DEVICE_TIER.isLowTier ? 24 : 38}
-            distance={DEVICE_TIER.isLowTier ? 38 : 52}
+            intensity={30}
+            distance={45}
             angle={0.52}
             penumbra={0.55}
           />
@@ -408,8 +407,8 @@ export function CarModel({
             position={[0.64, 0.38, 1.82]}
             target-position={[0.64, -0.6, 40]}
             color="#eaf5ff"
-            intensity={DEVICE_TIER.isLowTier ? 24 : 38}
-            distance={DEVICE_TIER.isLowTier ? 38 : 52}
+            intensity={30}
+            distance={45}
             angle={0.52}
             penumbra={0.55}
           />
@@ -419,9 +418,7 @@ export function CarModel({
       {/* Nitro Boost Thruster Flame */}
       {isNitroActive && (
         <group position={[0, 0.3, -1.9]}>
-          {DEVICE_TIER.enableExtraLights && (
-            <pointLight color="#00f0ff" intensity={8} distance={5} />
-          )}
+          <pointLight color="#00f0ff" intensity={6} distance={4} />
           <mesh rotation={[-Math.PI / 2, 0, 0]}>
             <coneGeometry args={[0.13, 1.3, 12]} />
             <meshBasicMaterial color="#00e5ff" transparent opacity={0.85} />
@@ -432,9 +429,7 @@ export function CarModel({
       {/* Taillight Brake Glow */}
       {isBraking && (
         <group position={[0, 0.42, -1.9]}>
-          {DEVICE_TIER.enableExtraLights && (
-            <pointLight color="#ff0022" intensity={8} distance={4} />
-          )}
+          <pointLight color="#ff0022" intensity={6} distance={4} />
         </group>
       )}
     </group>

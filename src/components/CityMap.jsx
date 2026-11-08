@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
-import { DEVICE_TIER } from '../utils/deviceTier';
 
 // Extend THREE with three-mesh-bvh
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -19,7 +18,7 @@ export function CityMap() {
 
   useEffect(() => {
     cityColliders.length = 0; // Clear previous
-    const maxAnisotropy = DEVICE_TIER.isLowTier ? 1 : 4;
+    const maxAnisotropy = 2;
 
     scene.traverse((child) => {
       if (child.isMesh) {

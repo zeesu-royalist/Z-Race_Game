@@ -1,6 +1,13 @@
 import { create } from 'zustand';
 import { useGLTF } from '@react-three/drei';
 import { CAR_CATALOG, DEFAULT_CAR_ID } from '../config/cars';
+import { soundManager } from '../utils/AudioSystem';
+
+let countdownTimers = [];
+const clearCountdownTimers = () => {
+  countdownTimers.forEach(t => clearTimeout(t));
+  countdownTimers = [];
+};
 
 const defaultCar = CAR_CATALOG.find((c) => c.id === DEFAULT_CAR_ID) || CAR_CATALOG[0];
 
@@ -34,10 +41,13 @@ export const useGameStore = create((set, get) => ({
   // Racing & Checkpoints
   gameMode: 'freeroam',
   raceActive: false,
+  raceCountdown: null, // null | 3 | 2 | 1 | 0 ('GO!')
+  racePosition: 4,
+  totalRacers: 7,
   lapTime: 0,
   bestLapTime: null,
   currentCheckpoint: 0,
-  totalCheckpoints: 8,
+  totalCheckpoints: 9,
   raceFinished: false,
 
   // Reset Signal
@@ -156,19 +166,60 @@ export const useGameStore = create((set, get) => ({
     totalDriftScore: s.totalDriftScore + points
   })),
 
+  setRacePosition: (pos) => set({ racePosition: pos }),
+
   // Race Actions
-  startRace: () => set({
-    gameMode: 'race',
-    raceActive: true,
-    lapTime: 0,
-    currentCheckpoint: 0,
-    raceFinished: false
-  }),
-  stopRace: () => set({
-    gameMode: 'freeroam',
-    raceActive: false,
-    raceFinished: false
-  }),
+  startRace: () => {
+    clearCountdownTimers();
+
+    // Position player in grid slot P4: [-4.8, 0.3, 10.0] facing +Z
+    get().teleportTo([-4.8, 0.3, 10.0], 0);
+
+    set({
+      gameMode: 'race',
+      raceActive: true,
+      raceCountdown: 3,
+      racePosition: 4,
+      lapTime: 0,
+      currentCheckpoint: 0,
+      raceFinished: false,
+      speed: 0
+    });
+
+    soundManager.playCountdown(3);
+
+    const t2 = setTimeout(() => {
+      set({ raceCountdown: 2 });
+      soundManager.playCountdown(2);
+    }, 1000);
+
+    const t1 = setTimeout(() => {
+      set({ raceCountdown: 1 });
+      soundManager.playCountdown(1);
+    }, 2000);
+
+    const tGo = setTimeout(() => {
+      set({ raceCountdown: 0 });
+      soundManager.playCountdown(0);
+    }, 3000);
+
+    const tClear = setTimeout(() => {
+      set({ raceCountdown: null });
+    }, 4200);
+
+    countdownTimers.push(t2, t1, tGo, tClear);
+  },
+
+  stopRace: () => {
+    clearCountdownTimers();
+    set({
+      gameMode: 'freeroam',
+      raceActive: false,
+      raceCountdown: null,
+      raceFinished: false
+    });
+  },
+
   reachCheckpoint: (checkpointIdx) => {
     const { currentCheckpoint, totalCheckpoints, lapTime, bestLapTime } = get();
     if (checkpointIdx === currentCheckpoint) {
@@ -185,9 +236,10 @@ export const useGameStore = create((set, get) => ({
       }
     }
   },
+
   updateLapTime: (delta) => {
     const s = get();
-    if (s.raceActive) {
+    if (s.raceActive && (s.raceCountdown === 0 || s.raceCountdown === null)) {
       s.lapTime += delta;
     }
   }

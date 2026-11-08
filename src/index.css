@@ -419,6 +419,42 @@ html, body, #root {
   font-weight: 700;
 }
 
+/* Race Countdown Overlay */
+.race-countdown-overlay {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 96px;
+  font-weight: 900;
+  color: #00f0ff;
+  text-shadow: 0 0 35px rgba(0, 240, 255, 0.8), 0 0 70px rgba(0, 240, 255, 0.4);
+  animation: countdownPulse 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  letter-spacing: 4px;
+}
+
+.countdown-go {
+  font-size: 110px;
+  color: #22ff88;
+  text-shadow: 0 0 45px rgba(34, 255, 136, 0.9), 0 0 90px rgba(34, 255, 136, 0.5);
+}
+
+@keyframes countdownPulse {
+  0% { transform: scale(1.6); opacity: 0; }
+  25% { transform: scale(1.0); opacity: 1; }
+  85% { transform: scale(0.95); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0; }
+}
+
 /* Drift Popup */
 .drift-score-popup {
   position: absolute;

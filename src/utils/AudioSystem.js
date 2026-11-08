@@ -312,6 +312,27 @@ class SoundSystem {
     } catch (e) {}
   }
 
+  playCountdown(count) {
+    if (!this.initialized || !this.enabled) return;
+    try {
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const isGo = count === 0;
+
+      osc.type = isGo ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(isGo ? 880 : 440, t);
+
+      gain.gain.setValueAtTime(isGo ? 0.25 : 0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + (isGo ? 0.35 : 0.15));
+
+      osc.connect(gain);
+      gain.connect(this.compressor);
+      osc.start(t);
+      osc.stop(t + (isGo ? 0.35 : 0.15));
+    } catch (e) {}
+  }
+
   playCheckpoint() {
     if (!this.initialized || !this.enabled) return;
     try {

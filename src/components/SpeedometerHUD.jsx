@@ -5,6 +5,7 @@ import { Zap, Flame, Timer, Trophy } from 'lucide-react';
 export function SpeedometerHUD() {
   // Event-driven state only (triggers React re-render only when race stage changes)
   const raceActive = useGameStore((s) => s.raceActive);
+  const raceCountdown = useGameStore((s) => s.raceCountdown);
   const bestLapTime = useGameStore((s) => s.bestLapTime);
   const currentCheckpoint = useGameStore((s) => s.currentCheckpoint);
   const totalCheckpoints = useGameStore((s) => s.totalCheckpoints);
@@ -20,6 +21,7 @@ export function SpeedometerHUD() {
   const nitroBarRef = useRef(null);
   const speedVignetteRef = useRef(null);
   const lapTimeRef = useRef(null);
+  const posValRef = useRef(null);
   const driftPopupRef = useRef(null);
   const driftScoreRef = useRef(null);
 
@@ -42,6 +44,7 @@ export function SpeedometerHUD() {
     let prevDrifting = false;
     let prevDriftScore = -1;
     let prevLapFormatted = '';
+    let prevRacePos = -1;
 
     const updateHUD = () => {
       const state = useGameStore.getState();
@@ -119,6 +122,14 @@ export function SpeedometerHUD() {
         }
       }
 
+      // Live Race Position (Zero React Re-render)
+      if (posValRef.current && state.raceActive) {
+        if (state.racePosition !== prevRacePos) {
+          posValRef.current.textContent = state.racePosition;
+          prevRacePos = state.racePosition;
+        }
+      }
+
       // 9. Live Drift Score Popup (Zero React Re-render)
       if (driftPopupRef.current) {
         if (isDrifting) {
@@ -158,6 +169,13 @@ export function SpeedometerHUD() {
         {raceActive && (
           <div className="race-top-card">
             <div className="race-stat-col">
+              <div className="race-stat-label">POSITION</div>
+              <div className="race-stat-value">
+                <span ref={posValRef} className="cp-cur">{useGameStore.getState().racePosition}</span> / 7
+              </div>
+            </div>
+            <div className="race-stat-divider" />
+            <div className="race-stat-col">
               <div className="race-stat-label">
                 <Timer size={14} className="icon-pulse" /> LAP TIME
               </div>
@@ -186,11 +204,24 @@ export function SpeedometerHUD() {
           </div>
         )}
 
+        {/* 3... 2... 1... GO! Race Countdown */}
+        {raceCountdown !== null && (
+          <div className="race-countdown-overlay">
+            <div key={raceCountdown} className={`countdown-num ${raceCountdown === 0 ? 'countdown-go' : ''}`}>
+              {raceCountdown === 0 ? 'GO!' : raceCountdown}
+            </div>
+          </div>
+        )}
+
         {/* Race Finished Banner */}
         {raceFinished && (
           <div className="race-finish-banner">
-            <div className="banner-badge">VICTORY</div>
-            <div className="banner-title">CIRCUIT COMPLETED!</div>
+            <div className="banner-badge">
+              {useGameStore.getState().racePosition === 1 ? 'VICTORY' : `POSITION P${useGameStore.getState().racePosition}`}
+            </div>
+            <div className="banner-title">
+              {useGameStore.getState().racePosition === 1 ? '1ST PLACE FINISH!' : `RACE COMPLETED!`}
+            </div>
             <div className="banner-time">Final Time: {formatTime(useGameStore.getState().lapTime)}</div>
           </div>
         )}

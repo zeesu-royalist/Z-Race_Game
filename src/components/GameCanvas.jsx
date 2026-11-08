@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { useGameStore } from '../store/gameStore';
 import { CityMap } from './CityMap';
 import { Car } from './Car';
+import { RivalCars } from './RivalCars';
 import { CameraRig } from './CameraRig';
 import { RacingSystem } from './RacingSystem';
 import { TireSkidmarks } from './TireSkidmarks';
@@ -153,6 +154,7 @@ export function GameCanvas() {
         <CityMap />
         <TireSkidmarks />
         <Car />
+        <RivalCars />
         <RacingSystem />
       </Suspense>
       <CameraRig />

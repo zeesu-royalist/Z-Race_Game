@@ -243,8 +243,13 @@ export function CameraRig() {
     const camLerpSpeed = orb.isDragging ? 22.0 : baseCamLerp;
     const lookLerpSpeed = orb.isDragging ? 24.0 : baseLookLerp;
 
-    currentCamPos.current.lerp(m.targetCamPos, camLerpSpeed * dt);
-    currentLookAt.current.lerp(m.targetLookAt, lookLerpSpeed * dt);
+    if (currentCamPos.current.distanceTo(m.targetCamPos) > 35) {
+      currentCamPos.current.copy(m.targetCamPos);
+      currentLookAt.current.copy(m.targetLookAt);
+    } else {
+      currentCamPos.current.lerp(m.targetCamPos, camLerpSpeed * dt);
+      currentLookAt.current.lerp(m.targetLookAt, lookLerpSpeed * dt);
+    }
 
     camera.position.copy(currentCamPos.current);
     camera.lookAt(currentLookAt.current);

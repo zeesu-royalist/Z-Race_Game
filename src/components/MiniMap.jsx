@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { CIRCUIT_CHECKPOINTS } from './RacingSystem';
+import { rivalRadarPositions } from './RivalCars';
 import { Compass } from 'lucide-react';
 
 // City Map Full Open-World Bounds (covering all 815m x 849m of terrain_retextured.glb + safety buffers)
@@ -15,29 +16,23 @@ const MAP_BOUNDS = {
 
 // Open-world arterial road network coordinates
 const CITY_ROADS = [
-  // 1. South Grand Boulevard
-  [[-3, -80], [-3, 160]],
-  // 2. South Hairpin / Loop
-  [[-3, 160], [-25, 135], [-25, -20], [-3, 0]],
-  // 3. Central Expressway (North-South backbone)
-  [[-150, -620], [-150, 0]],
-  // 4. Central Connector to Grand Blvd
+  // 1. South Grand Boulevard & Racing Tunnel Circuit
+  [[-3, -80], [-3, 75], [-5, 85], [-14.5, 105], [-35, 120], [-135, 122], [-220, 40], [-222, 20]],
+  // 2. Central Expressway (Turbo Alley North-South backbone)
+  [[-222, 40], [-222, -165]],
+  // 3. Mid-City Highway Connector
+  [[-222, -165], [-240, -195], [-278, -210.5], [-380, -211.2]],
+  // 4. Far West Coastal Avenue under Subway Bridge
+  [[-380, -211.2], [-452, -242], [-479.2, -310], [-479.2, -385]],
+  // 5. North Metropolis Sweeper & Grand Finish Boulevard
+  [[-479.2, -385], [-471, -412], [-442, -428.5], [-377, -441.5], [-369.7, -488]],
+  // 6. Central Connector to Grand Blvd
   [[-150, -40], [-3, -40]],
-  // 5. Mid-City Highway Connector
-  [[-450, -200], [150, -200]],
-  // 6. West District Boulevard
-  [[-350, -600], [-350, -150]],
-  // 7. Far West Coastal Avenue
-  [[-450, -550], [-450, -250]],
-  // 8. North Metropolis Beltway
-  [[-450, -550], [180, -550]],
-  // 9. North High Loop
-  [[-300, -620], [150, -620]],
-  // 10. Downtown Crossway
+  // 7. Downtown Crossway
   [[-250, -80], [220, -80]],
-  // 11. East Metro Boulevard
+  // 8. East Metro Boulevard
   [[180, -120], [180, 60]],
-  // 12. Far East District Loop
+  // 9. Far East District Loop
   [[250, -80], [250, 0], [180, 0]]
 ];
 
@@ -178,7 +173,6 @@ export function MiniMap() {
           if (idx === 0) ctx.moveTo(px, py);
           else ctx.lineTo(px, py);
         });
-        ctx.closePath();
         ctx.stroke();
 
         // Checkpoints
@@ -200,7 +194,31 @@ export function MiniMap() {
         });
       }
 
-      // 3. Player Arrow Marker (Position & Real-time Orientation)
+      // 3. Rival Competitor Cars on Radar (Rendered in matching livery colors)
+      if (raceActive) {
+        rivalRadarPositions.forEach((rival) => {
+          const rx = toRadarX(rival.x);
+          const ry = toRadarY(rival.z);
+
+          ctx.save();
+          ctx.translate(rx, ry);
+          ctx.rotate(rival.rotY);
+
+          // Sleek rival chevron
+          ctx.fillStyle = rival.color;
+          ctx.beginPath();
+          ctx.moveTo(0, 5.0);
+          ctx.lineTo(-3, -4.0);
+          ctx.lineTo(0, -2.0);
+          ctx.lineTo(3, -4.0);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.restore();
+        });
+      }
+
+      // 4. Player Arrow Marker (Position & Real-time Orientation)
       const carX = toRadarX(cx);
       const carY = toRadarY(cz);
 

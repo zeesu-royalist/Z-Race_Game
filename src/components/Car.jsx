@@ -273,6 +273,9 @@ export function Car() {
     const tuning = tuningRef.current;
 
     // --- 3. ACCELERATION & BRAKING ---
+    const raceCountdown = useGameStore.getState().raceCountdown;
+    const isLockedByCountdown = raceCountdown !== null && raceCountdown > 0;
+
     const maxForwardSpeed = (tuning.maxSpeed || 64) * nitroMultiplier;
     const maxReverseSpeed = -15;
     const accelRate = (tuning.accelRate || 19) * nitroMultiplier;
@@ -281,7 +284,15 @@ export function Car() {
 
     s.isBraking = false;
 
-    if (inputState.forward) {
+    if (isLockedByCountdown) {
+      s.speed = 0;
+      s.steerAngle = 0;
+      if (inputState.forward) {
+        s.rpm = Math.min(6200, s.rpm + 5000 * dt);
+      } else {
+        s.rpm = Math.max(900, s.rpm - 3500 * dt);
+      }
+    } else if (inputState.forward) {
       if (s.speed < 0) {
         s.speed += brakeRate * dt;
         s.isBraking = true;
