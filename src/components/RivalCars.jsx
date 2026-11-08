@@ -381,25 +381,72 @@ export function RivalCars() {
 
       if (isCountingDown) {
         // Pre-race engine rev vibration on the starting grid
-        const vibration = Math.sin(state.clock.elapsedTime * 35 + idx * 1.5) * 0.004;
+        const time = performance.now() * 0.001;
+        const vibration = Math.sin(time * 35 + idx * 1.5) * 0.004;
         sim.y = 0.30 + vibration;
         sim.speed = 0;
       } else if (canRace && !sim.finished) {
+        // Compute 3D road surface coordinates from Catmull-Rom spline
+        const t = THREE.MathUtils.clamp(sim.trackDist / TRACK_TOTAL_LENGTH, 0, 1);
+        raceTrackCurve.getPointAt(t, tempPoint);
+        raceTrackCurve.getTangentAt(t, tempTangent);
+        tempTangent.normalize();
+
+        // Normal vector perpendicular to road direction on XZ plane
+        tempNormal.set(-tempTangent.z, 0, tempTangent.x).normalize();
+
         // Dynamic AI speed fluctuations (simulating drafting & throttle balance)
         sim.speedVarianceTimer += dt;
-        if (sim.speedVarianceTimer > 1.6) {
+        if (sim.speedVarianceTimer > 1.8) {
           sim.speedVarianceTimer = 0;
-          const variance = (Math.random() - 0.5) * 4.5;
-          sim.targetSpeed = THREE.MathUtils.clamp(cfg.topSpeed + variance, 48, 63);
+          const variance = (Math.random() - 0.5) * 4.0;
+          sim.targetSpeed = THREE.MathUtils.clamp(cfg.topSpeed + variance, 48, 62);
+        }
 
-          // Subtle lane shifting for overtaking maneuvers (safe road corridor)
-          if (Math.random() > 0.5) {
-            const laneShift = (Math.random() - 0.5) * 1.8;
-            sim.targetLaneOffset = THREE.MathUtils.clamp(cfg.initialLane + laneShift, -1.8, 1.8);
+        // --- AI Pack Proactive Obstacle & Traffic Awareness ---
+        // Look ahead for cars directly in front (both rivals and player) to cleanly overtake
+        let carAheadDist = Infinity;
+        let carAheadSpeed = sim.speed;
+        let carAheadLane = sim.laneOffset;
+
+        // Check distance to player
+        if (playerPos) {
+          const pDx = playerPos[0] - sim.x;
+          const pDz = playerPos[2] - sim.z;
+          const forwardDist = pDx * tempTangent.x + pDz * tempTangent.z;
+          if (forwardDist > 0.5 && forwardDist < 14.0) {
+            const latDist = pDx * tempNormal.x + pDz * tempNormal.z;
+            carAheadDist = forwardDist;
+            carAheadSpeed = useGameStore.getState().speed || 30;
+            carAheadLane = sim.laneOffset + latDist;
           }
         }
 
-        // Accelerate forward
+        // Check distance to other competitors ahead
+        for (let j = 0; j < simState.current.length; j++) {
+          if (j === idx) continue;
+          const other = simState.current[j];
+          if (other.finished) continue;
+          const dTrack = other.trackDist - sim.trackDist;
+          if (dTrack > 0.5 && dTrack < carAheadDist && dTrack < 14.0) {
+            carAheadDist = dTrack;
+            carAheadSpeed = other.speed;
+            carAheadLane = other.laneOffset;
+          }
+        }
+
+        // Proactive overtaking maneuver: smooth lane shift when car ahead is blocking
+        if (carAheadDist < 12.0 && Math.abs(sim.laneOffset - carAheadLane) < 1.3) {
+          const shiftDir = carAheadLane >= 0 ? -1.0 : 1.0;
+          sim.targetLaneOffset = THREE.MathUtils.clamp(carAheadLane + shiftDir * 1.5, -1.8, 1.8);
+
+          // Modulate speed to match traffic before making the pass
+          if (carAheadDist < 4.0 && sim.speed > carAheadSpeed) {
+            sim.speed = THREE.MathUtils.lerp(sim.speed, carAheadSpeed, 3.5 * dt);
+          }
+        }
+
+        // Accelerate forward toward target speed
         if (sim.speed < sim.targetSpeed) {
           sim.speed = Math.min(sim.targetSpeed, sim.speed + sim.accelRate * dt);
         } else {
@@ -417,18 +464,9 @@ export function RivalCars() {
         // Smooth lateral steering to target lane
         sim.laneOffset = THREE.MathUtils.lerp(sim.laneOffset, sim.targetLaneOffset, 2.5 * dt);
 
-        // Compute 3D road surface coordinates from Catmull-Rom spline
-        const t = THREE.MathUtils.clamp(sim.trackDist / TRACK_TOTAL_LENGTH, 0, 1);
-        raceTrackCurve.getPointAt(t, tempPoint);
-        raceTrackCurve.getTangentAt(t, tempTangent);
-        tempTangent.normalize();
-
-        // Normal vector perpendicular to road direction on XZ plane
-        tempNormal.set(-tempTangent.z, 0, tempTangent.x).normalize();
-
-        // Decay any physical collision push
-        sim.pushX = THREE.MathUtils.lerp(sim.pushX, 0, 8.0 * dt);
-        sim.pushZ = THREE.MathUtils.lerp(sim.pushZ, 0, 8.0 * dt);
+        // Decay physical collision push safely clamped to road pavement bounds
+        sim.pushX = THREE.MathUtils.clamp(THREE.MathUtils.lerp(sim.pushX, 0, 8.0 * dt), -1.6, 1.6);
+        sim.pushZ = THREE.MathUtils.clamp(THREE.MathUtils.lerp(sim.pushZ, 0, 8.0 * dt), -1.6, 1.6);
 
         // Position car on asphalt road with lane offset + collision displacement
         sim.x = tempPoint.x + tempNormal.x * sim.laneOffset + sim.pushX;
@@ -450,8 +488,8 @@ export function RivalCars() {
         tempTangent.normalize();
         tempNormal.set(-tempTangent.z, 0, tempTangent.x).normalize();
 
-        sim.pushX = THREE.MathUtils.lerp(sim.pushX, 0, 8.0 * dt);
-        sim.pushZ = THREE.MathUtils.lerp(sim.pushZ, 0, 8.0 * dt);
+        sim.pushX = THREE.MathUtils.clamp(THREE.MathUtils.lerp(sim.pushX, 0, 8.0 * dt), -1.6, 1.6);
+        sim.pushZ = THREE.MathUtils.clamp(THREE.MathUtils.lerp(sim.pushZ, 0, 8.0 * dt), -1.6, 1.6);
 
         sim.x = tempPoint.x + tempNormal.x * sim.laneOffset + sim.pushX;
         sim.y = 0.30;
@@ -472,7 +510,7 @@ export function RivalCars() {
       rivalRadarPositions[idx].speed = sim.speed;
     });
 
-    // Rival-to-Rival Physics Collision (Prevents competitor cars from intersecting)
+    // Rival-to-Rival Smooth Continuous Capsule Collision
     if (canRace) {
       for (let i = 0; i < simState.current.length; i++) {
         for (let j = i + 1; j < simState.current.length; j++) {
@@ -486,33 +524,34 @@ export function RivalCars() {
           );
 
           if (col) {
+            // Smooth anti-penetration separation along continuous normal
             const sepX = col.normalX * col.depth * 0.5;
             const sepZ = col.normalZ * col.depth * 0.5;
-            r1.pushX += sepX;
-            r1.pushZ += sepZ;
-            r2.pushX -= sepX;
-            r2.pushZ -= sepZ;
+            r1.pushX = THREE.MathUtils.clamp(r1.pushX + sepX, -1.6, 1.6);
+            r1.pushZ = THREE.MathUtils.clamp(r1.pushZ + sepZ, -1.6, 1.6);
+            r2.pushX = THREE.MathUtils.clamp(r2.pushX - sepX, -1.6, 1.6);
+            r2.pushZ = THREE.MathUtils.clamp(r2.pushZ - sepZ, -1.6, 1.6);
             r1.x += sepX;
             r1.z += sepZ;
             r2.x -= sepX;
             r2.z -= sepZ;
 
-            // Lateral lane separation
+            // Gentle lane separation scaled by dt (zero sudden jerking)
             if (r1.laneOffset <= r2.laneOffset) {
-              r1.laneOffset = THREE.MathUtils.clamp(r1.laneOffset - 0.25, -1.8, 1.8);
-              r2.laneOffset = THREE.MathUtils.clamp(r2.laneOffset + 0.25, -1.8, 1.8);
+              r1.targetLaneOffset = THREE.MathUtils.clamp(r1.targetLaneOffset - 0.7 * dt, -1.8, 1.8);
+              r2.targetLaneOffset = THREE.MathUtils.clamp(r2.targetLaneOffset + 0.7 * dt, -1.8, 1.8);
             } else {
-              r1.laneOffset = THREE.MathUtils.clamp(r1.laneOffset + 0.25, -1.8, 1.8);
-              r2.laneOffset = THREE.MathUtils.clamp(r2.laneOffset - 0.25, -1.8, 1.8);
+              r1.targetLaneOffset = THREE.MathUtils.clamp(r1.targetLaneOffset + 0.7 * dt, -1.8, 1.8);
+              r2.targetLaneOffset = THREE.MathUtils.clamp(r2.targetLaneOffset - 0.7 * dt, -1.8, 1.8);
             }
-            r1.targetLaneOffset = r1.laneOffset;
-            r2.targetLaneOffset = r2.laneOffset;
 
-            // Longitudinal speed adjustment
+            // Trailing car yields throttle smoothly; leading car gets pushed forward
             if (r1.trackDist > r2.trackDist) {
-              r2.speed = Math.max(12, r2.speed - 4.0 * dt);
+              r2.speed = Math.max(12, r2.speed - 8.0 * dt);
+              r1.speed = Math.min(r1.topSpeed + 4, r1.speed + 4.0 * dt);
             } else {
-              r1.speed = Math.max(12, r1.speed - 4.0 * dt);
+              r1.speed = Math.max(12, r1.speed - 8.0 * dt);
+              r2.speed = Math.min(r2.topSpeed + 4, r2.speed + 4.0 * dt);
             }
 
             const grp1 = groupRefs.current[i];

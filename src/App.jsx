@@ -8,6 +8,9 @@ import { soundManager } from './utils/AudioSystem';
 import { useGameStore } from './store/gameStore';
 
 export default function App() {
+  if (typeof window !== 'undefined') {
+    window.useGameStore = useGameStore;
+  }
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const fetchCars = useGameStore((s) => s.fetchCars);
   const syncCarsList = useGameStore((s) => s.syncCarsList);

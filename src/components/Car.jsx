@@ -387,11 +387,11 @@ export function Car() {
         );
 
         if (col) {
-          // 1. Separate vehicles along Minimum Translation Vector (MTV) so cars never clip through each other
-          s.position.x += col.normalX * col.depth * 0.65;
-          s.position.z += col.normalZ * col.depth * 0.65;
-          rival.pushX -= col.normalX * col.depth * 0.45;
-          rival.pushZ -= col.normalZ * col.depth * 0.45;
+          // 1. Smooth positional anti-penetration along continuous capsule normal
+          s.position.x += col.normalX * col.depth * 0.55;
+          s.position.z += col.normalZ * col.depth * 0.55;
+          rival.pushX = THREE.MathUtils.clamp(rival.pushX - col.normalX * col.depth * 0.45, -1.6, 1.6);
+          rival.pushZ = THREE.MathUtils.clamp(rival.pushZ - col.normalZ * col.depth * 0.45, -1.6, 1.6);
           rival.x -= col.normalX * col.depth * 0.45;
           rival.z -= col.normalZ * col.depth * 0.45;
 
@@ -405,45 +405,49 @@ export function Car() {
           const relVz = pVz - rVz;
           const normalVel = relVx * col.normalX + relVz * col.normalZ;
 
-          // 3. Audio crash feedback (debounced to avoid audio buzz)
-          const now = state.clock.elapsedTime;
-          if (now - lastCrashSoundTime.current > 0.12) {
+          // 3. Audio crash feedback (debounced to avoid buzz, never throws)
+          const now = performance.now() * 0.001;
+          if (now - lastCrashSoundTime.current > 0.16 && normalVel < -1.0) {
             const impactForce = Math.min(2.0, Math.abs(normalVel) / 8.0 + 0.35);
             soundManager.playCrash(impactForce);
             lastCrashSoundTime.current = now;
           }
 
           if (normalVel < 0) {
-            // Elastic collision impulse
-            const impulse = -(1 + 0.35) * normalVel;
+            // Semi-elastic collision impulse (Newtonian conservation of momentum)
+            const restitution = 0.35;
+            const impulse = -(1 + restitution) * normalVel * 0.5;
 
-            // Forward alignment with collision normal
-            const pForwardDot = col.normalX * Math.sin(s.rotationY) + col.normalZ * Math.cos(s.rotationY);
-            const rForwardDot = (-col.normalX) * Math.sin(rival.rotY) + (-col.normalZ) * Math.cos(rival.rotY);
+            // Player car orientation axes
+            const pSin = Math.sin(s.rotationY);
+            const pCos = Math.cos(s.rotationY);
+            const pForwardDot = col.normalX * pSin + col.normalZ * pCos;
+            const pRightDot = col.normalX * pCos - col.normalZ * pSin;
 
-            if (pForwardDot < -0.35) {
-              // Player rear-ended the competitor car from behind
-              // Player loses speed from impact; Rival gets shoved forward
-              s.speed = Math.max(0, s.speed * 0.70 - impulse * 0.35);
-              rival.speed = Math.min(rival.topSpeed + 12, rival.speed + impulse * 0.45 + 5.0);
-              rival.trackDist += 1.2;
-            } else if (rForwardDot < -0.35) {
-              // Competitor rear-ended the player car
-              // Player receives speed boost; Rival slows down and shifts lane
-              s.speed += impulse * 0.4 + 4.0;
-              rival.speed = Math.max(8, rival.speed * 0.68 - impulse * 0.35);
-              rival.laneOffset = THREE.MathUtils.clamp(rival.laneOffset + (Math.random() > 0.5 ? 0.6 : -0.6), -1.8, 1.8);
-              rival.targetLaneOffset = rival.laneOffset;
-            } else {
-              // Sideswipe / Door-to-door rubbing
-              const lateralPush = col.normalX * Math.cos(s.rotationY) - col.normalZ * Math.sin(s.rotationY);
-              s.angularVelocity += lateralPush * 2.2;
-              s.speed *= 0.93;
+            // Longitudinal speed adjustment
+            // Rear-ending competitor slows player down; being rear-ended gives player a boost
+            const deltaPlayerSpeed = impulse * pForwardDot;
+            s.speed = Math.max(0, s.speed + deltaPlayerSpeed);
 
-              rival.laneOffset = THREE.MathUtils.clamp(rival.laneOffset - col.normalX * 0.5, -1.8, 1.8);
-              rival.targetLaneOffset = rival.laneOffset;
-              rival.speed *= 0.93;
-            }
+            // Off-center contact torque / lateral steering kick
+            const rx = col.contactX - s.position.x;
+            const rz = col.contactZ - s.position.z;
+            const leverArmLongitudinal = rx * pSin + rz * pCos;
+            const lateralImpulse = impulse * pRightDot;
+            const torque = leverArmLongitudinal * lateralImpulse;
+            s.angularVelocity += THREE.MathUtils.clamp(torque * 0.10, -2.2, 2.2);
+
+            // Contact friction damping
+            s.speed *= 0.985;
+
+            // Rival competitor vehicle response
+            const rSin = Math.sin(rival.rotY);
+            const rCos = Math.cos(rival.rotY);
+            const rForwardDot = (-col.normalX) * rSin + (-col.normalZ) * rCos;
+            const rRightDot = (-col.normalX) * rCos - (-col.normalZ) * rSin;
+
+            rival.speed = THREE.MathUtils.clamp(rival.speed + impulse * rForwardDot, 12, rival.topSpeed + 10);
+            rival.targetLaneOffset = THREE.MathUtils.clamp(rival.laneOffset + rRightDot * 0.45, -1.8, 1.8);
           }
         }
       }
