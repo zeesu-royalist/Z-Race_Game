@@ -91,6 +91,7 @@ export function Car() {
   useEffect(() => {
     const onKeyDown = (e) => {
       soundManager.init();
+      soundManager.resume();
 
       switch (e.code) {
         case 'KeyW':

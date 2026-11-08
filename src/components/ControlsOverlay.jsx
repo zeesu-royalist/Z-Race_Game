@@ -17,6 +17,7 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { CarCustomizerModal } from './CarCustomizerModal';
+import { soundManager } from '../utils/AudioSystem';
 
 export function ControlsOverlay() {
   const cameraMode = useGameStore((s) => s.cameraMode);
@@ -57,7 +58,12 @@ export function ControlsOverlay() {
           {/* Race Mode Toggle */}
           <button
             className={`action-pill ${raceActive ? 'race-active-pill' : 'race-idle-pill'}`}
-            onClick={raceActive ? stopRace : startRace}
+            onClick={() => {
+              soundManager.init();
+              soundManager.resume();
+              if (raceActive) stopRace();
+              else startRace();
+            }}
             title={raceActive ? 'End Race' : 'Start Circuit Race'}
           >
             <Flag size={16} />
@@ -107,7 +113,11 @@ export function ControlsOverlay() {
           {/* Sound Toggle */}
           <button
             className="icon-action-btn"
-            onClick={toggleSound}
+            onClick={() => {
+              soundManager.init();
+              soundManager.resume();
+              toggleSound();
+            }}
             title="Toggle Audio (Press M)"
           >
             {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} color="#ff4455" />}

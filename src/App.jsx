@@ -10,6 +10,7 @@ import { useGameStore } from './store/gameStore';
 export default function App() {
   if (typeof window !== 'undefined') {
     window.useGameStore = useGameStore;
+    window.soundManager = soundManager;
   }
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const fetchCars = useGameStore((s) => s.fetchCars);
@@ -31,17 +32,16 @@ export default function App() {
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     setIsTouchDevice(hasTouch);
 
-    // 4. Audio context auto-init on first click or touch
-    const handleFirstClick = () => {
+    // 4. Audio context auto-init & resume on any user gesture (click, keypress, touch)
+    const handleUserInteraction = () => {
       soundManager.init();
-      window.removeEventListener('click', handleFirstClick);
-      window.removeEventListener('keydown', handleFirstClick);
-      window.removeEventListener('touchstart', handleFirstClick);
+      soundManager.resume();
     };
 
-    window.addEventListener('click', handleFirstClick);
-    window.addEventListener('keydown', handleFirstClick);
-    window.addEventListener('touchstart', handleFirstClick, { passive: true });
+    window.addEventListener('click', handleUserInteraction, { passive: true });
+    window.addEventListener('pointerdown', handleUserInteraction, { passive: true });
+    window.addEventListener('keydown', handleUserInteraction, { passive: true });
+    window.addEventListener('touchstart', handleUserInteraction, { passive: true });
 
     // 5. Suspend audio and save CPU/battery when tab is hidden or phone screen is locked
     const handleVisibilityChange = () => {
@@ -50,14 +50,18 @@ export default function App() {
       } else {
         const soundEnabled = useGameStore.getState().soundEnabled;
         soundManager.setEnabled(soundEnabled);
+        if (soundEnabled) {
+          soundManager.resume();
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('click', handleFirstClick);
-      window.removeEventListener('keydown', handleFirstClick);
-      window.removeEventListener('touchstart', handleFirstClick);
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('pointerdown', handleUserInteraction);
+      window.removeEventListener('keydown', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchCars, syncCarsList]);

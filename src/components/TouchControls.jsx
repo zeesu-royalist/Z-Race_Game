@@ -9,6 +9,7 @@ export function TouchControls() {
       e.preventDefault();
     }
     soundManager.init();
+    soundManager.resume();
     if (key in inputState) {
       inputState[key] = active;
     }
