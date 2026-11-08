@@ -176,18 +176,7 @@ export const rivalCarsSim = RIVAL_CARS_CONFIG.map((cfg) => ({
   pushZ: 0
 }));
 
-export const rivalRadarPositions = RIVAL_CARS_CONFIG.map((cfg) => ({
-  id: cfg.id,
-  name: cfg.name,
-  color: cfg.color,
-  x: cfg.startPos[0],
-  z: cfg.startPos[2],
-  rotY: cfg.startRotY,
-  speed: 0
-}));
-
 if (typeof window !== 'undefined') {
-  window.rivalRadarPositions = rivalRadarPositions;
   window.rivalCarsSim = rivalCarsSim;
 }
 
@@ -201,12 +190,13 @@ export function RivalCars() {
   const lastPlayerSampleIdx = useRef(0);
   const simState = useRef(rivalCarsSim);
 
-  // Cull invisible interior meshes (saves 198 draw calls & 520,000 tris across 6 rivals)
+  // Physically cull invisible interior meshes (permanently frees 198 draw calls & 520,000 tris across 6 rivals)
   const rivalScenes = useMemo(() => {
     return RIVAL_CARS_CONFIG.map((cfg) => {
       const cloned = SkeletonUtils.clone(slsBaseScene);
       cloned.scale.setScalar(SCALE_FACTOR);
 
+      const toRemove = [];
       cloned.traverse((child) => {
         if (!child.isMesh) return;
         child.castShadow = false;
@@ -218,9 +208,10 @@ export function RivalCars() {
           matName.startsWith('INT_') || nodeName.startsWith('INT_') ||
           matName.includes('Cockpit') || matName.includes('Volante') ||
           matName.includes('ROLLBAR') || matName.includes('Decals') ||
+          matName.includes('Sedile') || matName.includes('Cintura') ||
           matName.includes('Rim_Blur')
         ) {
-          child.visible = false;
+          toRemove.push(child);
           return;
         }
 
@@ -237,6 +228,7 @@ export function RivalCars() {
         }
       });
 
+      toRemove.forEach((ch) => ch.parent && ch.parent.remove(ch));
       return cloned;
     });
   }, [slsBaseScene]);
@@ -267,11 +259,6 @@ export function RivalCars() {
           grp.position.set(sim.x, sim.y, sim.z);
           grp.rotation.set(0, sim.rotY, 0);
         }
-
-        rivalRadarPositions[idx].x = sim.x;
-        rivalRadarPositions[idx].z = sim.z;
-        rivalRadarPositions[idx].rotY = sim.rotY;
-        rivalRadarPositions[idx].speed = 0;
       });
     }
   }, [raceActive]);
@@ -414,16 +401,18 @@ export function RivalCars() {
         }
       }
 
-      // Update 3D visual mesh transform once per frame
+      // Update 3D visual mesh transform with distance-based GPU culling
       if (grp) {
-        grp.position.set(sim.x, sim.y, sim.z);
-        grp.rotation.set(0, sim.rotY, 0);
+        if (playerPos) {
+          const dx = sim.x - playerPos[0];
+          const dz = sim.z - playerPos[2];
+          grp.visible = (dx * dx + dz * dz) < 48400; // Only render when within 220m of player
+        }
+        if (grp.visible) {
+          grp.position.set(sim.x, sim.y, sim.z);
+          grp.rotation.set(0, sim.rotY, 0);
+        }
       }
-
-      rivalRadarPositions[idx].x = sim.x;
-      rivalRadarPositions[idx].z = sim.z;
-      rivalRadarPositions[idx].rotY = sim.rotY;
-      rivalRadarPositions[idx].speed = sim.speed;
     });
 
     // Rival-to-Rival Continuous Capsule Collision

@@ -13,8 +13,7 @@ import {
   Wrench,
   HelpCircle,
   X,
-  Keyboard,
-  Lightbulb
+  Keyboard
 } from 'lucide-react';
 import { CarCustomizerModal } from './CarCustomizerModal';
 import { soundManager } from '../utils/AudioSystem';
@@ -30,8 +29,6 @@ export function ControlsOverlay() {
   const raceActive = useGameStore((s) => s.raceActive);
   const startRace = useGameStore((s) => s.startRace);
   const stopRace = useGameStore((s) => s.stopRace);
-  const headlights = useGameStore((s) => s.headlights);
-  const toggleHeadlights = useGameStore((s) => s.toggleHeadlights);
   const carName = useGameStore((s) => s.carName);
 
   const [isGarageOpen, setIsGarageOpen] = useState(false);
@@ -98,16 +95,6 @@ export function ControlsOverlay() {
           >
             {getTimeIcon()}
             <span>{timeOfDay.toUpperCase()}</span>
-          </button>
-
-          {/* Headlights Toggle */}
-          <button
-            className={`action-pill ${headlights ? 'headlights-on' : ''}`}
-            onClick={toggleHeadlights}
-            title="Toggle Headlights (Press L)"
-          >
-            <Lightbulb size={16} />
-            <span>LIGHTS</span>
           </button>
 
           {/* Sound Toggle */}
@@ -217,12 +204,6 @@ export function ControlsOverlay() {
                     <span className="key-cap">T</span>
                   </div>
                   <span className="key-desc">Cycle Time (Day, Sunset, Cyberpunk Night)</span>
-                </div>
-                <div className="key-row">
-                  <div className="key-badges">
-                    <span className="key-cap">L</span>
-                  </div>
-                  <span className="key-desc">Toggle High-Beam Headlights</span>
                 </div>
                 <div className="key-row">
                   <div className="key-badges">

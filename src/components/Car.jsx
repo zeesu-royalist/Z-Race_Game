@@ -36,7 +36,6 @@ const KEY_MAP = {
 const ACTION_KEYS = {
   KeyR: () => useGameStore.getState().triggerReset(),
   KeyC: () => useGameStore.getState().cycleCameraMode(),
-  KeyL: () => useGameStore.getState().toggleHeadlights(),
   KeyM: () => useGameStore.getState().toggleSound(),
   KeyT: () => useGameStore.getState().cycleTimeOfDay()
 };
@@ -51,7 +50,6 @@ export function Car() {
   const resetSignal = useGameStore((s) => s.resetSignal);
   const teleportSignal = useGameStore((s) => s.teleportSignal);
   const currentCarId = useGameStore((s) => s.currentCarId);
-  const headlights = useGameStore((s) => s.headlights);
   const soundEnabled = useGameStore((s) => s.soundEnabled);
 
   const activeCarCategoryRef = useRef('jdm_turbo');
@@ -490,12 +488,9 @@ export function Car() {
   return (
     <group ref={carGroup} position={[SPAWN_POS.x, SPAWN_POS.y, SPAWN_POS.z]}>
       <CarModel
-        steerAngle={state.current.steerAngle}
-        wheelRotation={state.current.wheelRotation}
         isBraking={state.current.isBraking}
         isNitroActive={state.current.isNitroActive}
         isDrifting={state.current.isDrifting}
-        headlightsOn={headlights}
       />
     </group>
   );

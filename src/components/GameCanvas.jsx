@@ -24,7 +24,7 @@ function LoadingScreen() {
 
 function EnvironmentLights() {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
-  const shadowSize = 1024;
+  const shadowSize = 512;
 
   if (timeOfDay === 'sunset') {
     return (
@@ -45,15 +45,15 @@ function EnvironmentLights() {
           castShadow
           shadow-mapSize={[shadowSize, shadowSize]}
           shadow-camera-near={10}
-          shadow-camera-far={320}
-          shadow-camera-left={-65}
-          shadow-camera-right={65}
-          shadow-camera-top={65}
-          shadow-camera-bottom={-65}
-          shadow-bias={-0.0002}
+          shadow-camera-far={260}
+          shadow-camera-left={-55}
+          shadow-camera-right={55}
+          shadow-camera-top={55}
+          shadow-camera-bottom={-55}
+          shadow-bias={-0.0003}
         />
         <hemisphereLight skyColor="#ff9955" groundColor="#332211" intensity={0.7} />
-        <fog attach="fog" args={['#a85c42', 150, 1400]} />
+        <fog attach="fog" args={['#a85c42', 100, 480]} />
         <Environment preset="sunset" environmentIntensity={0.8} />
       </>
     );
@@ -71,15 +71,15 @@ function EnvironmentLights() {
           castShadow
           shadow-mapSize={[shadowSize, shadowSize]}
           shadow-camera-near={10}
-          shadow-camera-far={300}
-          shadow-camera-left={-60}
-          shadow-camera-right={60}
-          shadow-camera-top={60}
-          shadow-camera-bottom={-60}
-          shadow-bias={-0.0002}
+          shadow-camera-far={260}
+          shadow-camera-left={-55}
+          shadow-camera-right={55}
+          shadow-camera-top={55}
+          shadow-camera-bottom={-55}
+          shadow-bias={-0.0003}
         />
         <hemisphereLight skyColor="#0c1626" groundColor="#050608" intensity={0.4} />
-        <fog attach="fog" args={['#070a12', 120, 1300]} />
+        <fog attach="fog" args={['#070a12', 80, 450]} />
         <Environment preset="night" environmentIntensity={0.5} />
       </>
     );
@@ -104,15 +104,15 @@ function EnvironmentLights() {
         castShadow
         shadow-mapSize={[shadowSize, shadowSize]}
         shadow-camera-near={10}
-        shadow-camera-far={320}
-        shadow-camera-left={-65}
-        shadow-camera-right={65}
-        shadow-camera-top={65}
-        shadow-camera-bottom={-65}
-        shadow-bias={-0.0002}
+        shadow-camera-far={260}
+        shadow-camera-left={-55}
+        shadow-camera-right={55}
+        shadow-camera-top={55}
+        shadow-camera-bottom={-55}
+        shadow-bias={-0.0003}
       />
       <hemisphereLight skyColor="#87ceeb" groundColor="#3a4042" intensity={0.7} />
-      <fog attach="fog" args={['#b8d8ea', 200, 1500]} />
+      <fog attach="fog" args={['#b8d8ea', 120, 500]} />
       <Environment preset="city" environmentIntensity={0.85} />
     </>
   );
@@ -136,9 +136,9 @@ export function GameCanvas() {
 
   return (
     <Canvas
-      shadows={{ type: THREE.PCFShadowMap }}
-      dpr={[1, 1.25]}
-      camera={{ position: [10, 5, -20], fov: 62, near: 0.1, far: 1800 }}
+      shadows={{ type: THREE.BasicShadowMap }}
+      dpr={1}
+      camera={{ position: [10, 5, -20], fov: 62, near: 0.2, far: 500 }}
       gl={{
         antialias: true,
         stencil: false,

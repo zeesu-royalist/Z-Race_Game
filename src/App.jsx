@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GameCanvas } from './components/GameCanvas';
 import { SpeedometerHUD } from './components/SpeedometerHUD';
-import { MiniMap } from './components/MiniMap';
 import { ControlsOverlay } from './components/ControlsOverlay';
 import { TouchControls } from './components/TouchControls';
 import { soundManager } from './utils/AudioSystem';
@@ -57,7 +56,6 @@ export default function App() {
     <div className="game-viewport">
       <GameCanvas />
       <ControlsOverlay />
-      <MiniMap />
       <SpeedometerHUD />
       {isTouchDevice && <TouchControls />}
     </div>

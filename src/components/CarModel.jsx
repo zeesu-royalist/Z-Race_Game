@@ -103,15 +103,11 @@ function TireSmokeEmitter({ isDrifting }) {
   );
 }
 
-function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
+function UniversalCarGLB({ url }) {
   const { scene } = useGLTF(url);
-  const frontWheelsRef = useRef([]);
-  const rearWheelsRef = useRef([]);
 
   const adapted = useMemo(() => {
     const root = SkeletonUtils.clone(scene);
-    frontWheelsRef.current = [];
-    rearWheelsRef.current = [];
     const fileName = (url || '').split('/').pop();
 
     root.traverse((node) => {
@@ -205,21 +201,6 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     wrapper.scale.setScalar(TARGET_CAR_LENGTH / size.z);
     wrapper.updateMatrixWorld(true);
 
-    root.traverse((node) => {
-      const name = (node.name || '').toLowerCase();
-      if (((name.includes('wheel') || name.includes('tire') || name.includes('tyre') || name.includes('rim')) && (node.isMesh || node.isBone)) && !name.includes('steering')) {
-        const pos = new THREE.Vector3();
-        if (node.isMesh) new THREE.Box3().setFromObject(node).getCenter(pos);
-        else node.getWorldPosition(pos);
-
-        if (pos.z > 0 || name.includes('front') || name.includes('fl') || name.includes('fr')) {
-          frontWheelsRef.current.push(node);
-        } else {
-          rearWheelsRef.current.push(node);
-        }
-      }
-    });
-
     return { wrapper };
   }, [scene, url]);
 
@@ -236,67 +217,24 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     };
   }, [adapted]);
 
-  useFrame(() => {
-    const front = frontWheelsRef.current;
-    for (let i = 0; i < front.length; i++) {
-      front[i].rotation.y = steerAngle;
-      front[i].rotation.x = wheelRotation;
-    }
-    const rear = rearWheelsRef.current;
-    for (let i = 0; i < rear.length; i++) {
-      rear[i].rotation.x = wheelRotation;
-    }
-  });
-
   return <primitive object={adapted.wrapper} />;
 }
 
 export function CarModel({
-  steerAngle = 0,
-  wheelRotation = 0,
   isBraking = false,
   isNitroActive = false,
-  isDrifting = false,
-  headlightsOn = true
+  isDrifting = false
 }) {
   const carModelPath = useGameStore((s) => s.carModelPath);
 
   return (
     <group>
       {carModelPath && (
-        <UniversalCarGLB
-          url={carModelPath}
-          steerAngle={steerAngle}
-          wheelRotation={wheelRotation}
-        />
+        <UniversalCarGLB url={carModelPath} />
       )}
 
       {/* Dynamic Tire Smoke Particles */}
       <TireSmokeEmitter isDrifting={isDrifting} />
-
-      {/* Projected High-Beam Headlights */}
-      {headlightsOn && (
-        <>
-          <spotLight
-            position={[-0.64, 0.38, 1.82]}
-            target-position={[-0.64, -0.6, 40]}
-            color="#eaf5ff"
-            intensity={30}
-            distance={45}
-            angle={0.52}
-            penumbra={0.55}
-          />
-          <spotLight
-            position={[0.64, 0.38, 1.82]}
-            target-position={[0.64, -0.6, 40]}
-            color="#eaf5ff"
-            intensity={30}
-            distance={45}
-            angle={0.52}
-            penumbra={0.55}
-          />
-        </>
-      )}
 
       {/* Nitro Boost Thruster Flame */}
       {isNitroActive && (

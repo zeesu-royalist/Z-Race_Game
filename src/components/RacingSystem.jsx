@@ -61,16 +61,20 @@ export function RacingSystem() {
 
   return (
     <group>
-      {CIRCUIT_CHECKPOINTS.map((cp, idx) => (
-        <CheckpointGate
-          key={cp.id}
-          position={cp.pos}
-          rotY={cp.rotY || 0}
-          isNext={idx === currentCheckpoint}
-          isPassed={idx < currentCheckpoint}
-          isFinish={idx === CIRCUIT_CHECKPOINTS.length - 1}
-        />
-      ))}
+      {CIRCUIT_CHECKPOINTS.map((cp, idx) => {
+        const isNear = Math.abs(idx - currentCheckpoint) <= 2 || (idx === CIRCUIT_CHECKPOINTS.length - 1 && currentCheckpoint >= 13);
+        if (!isNear) return null;
+        return (
+          <CheckpointGate
+            key={cp.id}
+            position={cp.pos}
+            rotY={cp.rotY || 0}
+            isNext={idx === currentCheckpoint}
+            isPassed={idx < currentCheckpoint}
+            isFinish={idx === CIRCUIT_CHECKPOINTS.length - 1}
+          />
+        );
+      })}
     </group>
   );
 }

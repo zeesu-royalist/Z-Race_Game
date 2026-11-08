@@ -29,7 +29,6 @@ export const useGameStore = create((set, get) => ({
   totalDriftScore: 0,
   nitro: 100,
   isNitroActive: false,
-  headlights: true,
   carPosition: [-3.0, 0.3, 10.0],
   carRotation: 0,
 
@@ -112,7 +111,6 @@ export const useGameStore = create((set, get) => ({
   triggerReset: () => set((s) => ({ resetSignal: s.resetSignal + 1 })),
   setNitro: (nitro) => set({ nitro }),
   setNitroActive: (isNitroActive) => set({ isNitroActive }),
-  toggleHeadlights: () => set((s) => ({ headlights: !s.headlights })),
   setCameraMode: (cameraMode) => set({ cameraMode }),
   cycleCameraMode: () => {
     const modes = ['close', 'far', 'aerial'];
