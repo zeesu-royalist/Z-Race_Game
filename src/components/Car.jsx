@@ -5,6 +5,14 @@ import { useGameStore } from '../store/gameStore';
 import { CarModel } from './CarModel';
 import { soundManager } from '../utils/AudioSystem';
 import { cityColliders } from './CityMap';
+import { rivalCarsSim } from './RivalCars';
+import {
+  checkCarCollision,
+  PLAYER_HALF_LENGTH,
+  PLAYER_HALF_WIDTH,
+  RIVAL_HALF_LENGTH,
+  RIVAL_HALF_WIDTH
+} from '../utils/carCollision';
 
 // Virtual keyboard & touch input tracker
 export const inputState = {
@@ -38,6 +46,9 @@ export function Car() {
     gripFactor: 0.9,
     turnMultiplier: 1.0
   });
+
+  // Crash sound debouncer
+  const lastCrashSoundTime = useRef(0);
 
   // Vehicle dynamics physics state
   const state = useRef({
@@ -361,6 +372,81 @@ export function Car() {
       const slipAmount = (1.0 - gripFactor) * s.angularVelocity * 0.4 * dt * s.speed;
       s.position.x += m.rightVec.x * slipAmount;
       s.position.z += m.rightVec.z * slipAmount;
+    }
+
+    // --- 5.1 CAR-TO-CAR RACING COLLISION (Player vs 6 Rival SLS GT3 Cars) ---
+    const raceActive = useGameStore.getState().raceActive;
+    const raceFinished = useGameStore.getState().raceFinished;
+
+    if (raceActive || raceFinished) {
+      for (let i = 0; i < rivalCarsSim.length; i++) {
+        const rival = rivalCarsSim[i];
+        const col = checkCarCollision(
+          s.position.x, s.position.z, s.rotationY, PLAYER_HALF_LENGTH, PLAYER_HALF_WIDTH,
+          rival.x, rival.z, rival.rotY, RIVAL_HALF_LENGTH, RIVAL_HALF_WIDTH
+        );
+
+        if (col) {
+          // 1. Separate vehicles along Minimum Translation Vector (MTV) so cars never clip through each other
+          s.position.x += col.normalX * col.depth * 0.65;
+          s.position.z += col.normalZ * col.depth * 0.65;
+          rival.pushX -= col.normalX * col.depth * 0.45;
+          rival.pushZ -= col.normalZ * col.depth * 0.45;
+          rival.x -= col.normalX * col.depth * 0.45;
+          rival.z -= col.normalZ * col.depth * 0.45;
+
+          // 2. Relative velocity along collision normal
+          const pVx = Math.sin(s.rotationY) * s.speed;
+          const pVz = Math.cos(s.rotationY) * s.speed;
+          const rVx = Math.sin(rival.rotY) * rival.speed;
+          const rVz = Math.cos(rival.rotY) * rival.speed;
+
+          const relVx = pVx - rVx;
+          const relVz = pVz - rVz;
+          const normalVel = relVx * col.normalX + relVz * col.normalZ;
+
+          // 3. Audio crash feedback (debounced to avoid audio buzz)
+          const now = state.clock.elapsedTime;
+          if (now - lastCrashSoundTime.current > 0.12) {
+            const impactForce = Math.min(2.0, Math.abs(normalVel) / 8.0 + 0.35);
+            soundManager.playCrash(impactForce);
+            lastCrashSoundTime.current = now;
+          }
+
+          if (normalVel < 0) {
+            // Elastic collision impulse
+            const impulse = -(1 + 0.35) * normalVel;
+
+            // Forward alignment with collision normal
+            const pForwardDot = col.normalX * Math.sin(s.rotationY) + col.normalZ * Math.cos(s.rotationY);
+            const rForwardDot = (-col.normalX) * Math.sin(rival.rotY) + (-col.normalZ) * Math.cos(rival.rotY);
+
+            if (pForwardDot < -0.35) {
+              // Player rear-ended the competitor car from behind
+              // Player loses speed from impact; Rival gets shoved forward
+              s.speed = Math.max(0, s.speed * 0.70 - impulse * 0.35);
+              rival.speed = Math.min(rival.topSpeed + 12, rival.speed + impulse * 0.45 + 5.0);
+              rival.trackDist += 1.2;
+            } else if (rForwardDot < -0.35) {
+              // Competitor rear-ended the player car
+              // Player receives speed boost; Rival slows down and shifts lane
+              s.speed += impulse * 0.4 + 4.0;
+              rival.speed = Math.max(8, rival.speed * 0.68 - impulse * 0.35);
+              rival.laneOffset = THREE.MathUtils.clamp(rival.laneOffset + (Math.random() > 0.5 ? 0.6 : -0.6), -1.8, 1.8);
+              rival.targetLaneOffset = rival.laneOffset;
+            } else {
+              // Sideswipe / Door-to-door rubbing
+              const lateralPush = col.normalX * Math.cos(s.rotationY) - col.normalZ * Math.sin(s.rotationY);
+              s.angularVelocity += lateralPush * 2.2;
+              s.speed *= 0.93;
+
+              rival.laneOffset = THREE.MathUtils.clamp(rival.laneOffset - col.normalX * 0.5, -1.8, 1.8);
+              rival.targetLaneOffset = rival.laneOffset;
+              rival.speed *= 0.93;
+            }
+          }
+        }
+      }
     }
 
     // --- 6. BVH SUSPENSION & MULTI-TIER ROAD/BRIDGE RAYCAST (Zero Array Allocations) ---

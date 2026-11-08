@@ -4,6 +4,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { useGameStore } from '../store/gameStore';
+import { checkCarCollision, RIVAL_HALF_LENGTH, RIVAL_HALF_WIDTH } from '../utils/carCollision';
 
 // Target car length scaled proportionally to city road lanes
 const TARGET_CAR_LENGTH = 3.9;
@@ -249,6 +250,29 @@ RIVAL_CARS_CONFIG.forEach((cfg) => {
   cfg.startRotY = Math.atan2(tan.x, tan.z);
 });
 
+// Shared mutable buffer for 60 FPS rival simulation & physics collision
+export const rivalCarsSim = RIVAL_CARS_CONFIG.map((cfg) => ({
+  id: cfg.id,
+  name: cfg.name,
+  color: cfg.color,
+  startDist: cfg.startDist,
+  trackDist: cfg.startDist,
+  speed: 0,
+  topSpeed: cfg.topSpeed,
+  accelRate: cfg.accelRate,
+  initialLane: cfg.initialLane,
+  laneOffset: cfg.initialLane,
+  targetLaneOffset: cfg.initialLane,
+  finished: false,
+  speedVarianceTimer: Math.random() * 2,
+  x: cfg.startPos[0],
+  y: cfg.startPos[1],
+  z: cfg.startPos[2],
+  rotY: cfg.startRotY,
+  pushX: 0,
+  pushZ: 0
+}));
+
 // Shared mutable buffer for 60 FPS radar updates (Zero React re-render overhead)
 export const rivalRadarPositions = RIVAL_CARS_CONFIG.map((cfg) => ({
   id: cfg.id,
@@ -262,6 +286,7 @@ export const rivalRadarPositions = RIVAL_CARS_CONFIG.map((cfg) => ({
 
 if (typeof window !== 'undefined') {
   window.rivalRadarPositions = rivalRadarPositions;
+  window.rivalCarsSim = rivalCarsSim;
 }
 
 export function RivalCars() {
@@ -274,22 +299,7 @@ export function RivalCars() {
   const groupRefs = useRef([]);
 
   // AI dynamic simulation state for each competitor (Zero GC per frame)
-  const simState = useRef(
-    RIVAL_CARS_CONFIG.map((cfg) => ({
-      trackDist: cfg.startDist,
-      speed: 0,
-      targetSpeed: cfg.topSpeed,
-      accelRate: cfg.accelRate,
-      laneOffset: cfg.initialLane,
-      targetLaneOffset: cfg.initialLane,
-      finished: false,
-      speedVarianceTimer: Math.random() * 2,
-      x: cfg.startPos[0],
-      y: cfg.startPos[1],
-      z: cfg.startPos[2],
-      rotY: cfg.startRotY
-    }))
-  );
+  const simState = useRef(rivalCarsSim);
 
   // Clone SLS model once per rival with distinct custom paint material (Zero extra geometry memory)
   const rivalScenes = useMemo(() => {
@@ -337,6 +347,8 @@ export function RivalCars() {
         sim.targetLaneOffset = cfg.initialLane;
         sim.finished = false;
         sim.speedVarianceTimer = Math.random() * 2;
+        sim.pushX = 0;
+        sim.pushZ = 0;
         sim.x = cfg.startPos[0];
         sim.y = cfg.startPos[1];
         sim.z = cfg.startPos[2];
@@ -414,17 +426,21 @@ export function RivalCars() {
         // Normal vector perpendicular to road direction on XZ plane
         tempNormal.set(-tempTangent.z, 0, tempTangent.x).normalize();
 
-        // Position car on asphalt road with lane offset
-        sim.x = tempPoint.x + tempNormal.x * sim.laneOffset;
+        // Decay any physical collision push
+        sim.pushX = THREE.MathUtils.lerp(sim.pushX, 0, 8.0 * dt);
+        sim.pushZ = THREE.MathUtils.lerp(sim.pushZ, 0, 8.0 * dt);
+
+        // Position car on asphalt road with lane offset + collision displacement
+        sim.x = tempPoint.x + tempNormal.x * sim.laneOffset + sim.pushX;
         sim.y = 0.30;
-        sim.z = tempPoint.z + tempNormal.z * sim.laneOffset;
+        sim.z = tempPoint.z + tempNormal.z * sim.laneOffset + sim.pushZ;
 
         // Natural heading along track tangent with subtle lateral steering yaw
         const baseRotY = Math.atan2(tempTangent.x, tempTangent.z);
         const laneDiff = sim.targetLaneOffset - sim.laneOffset;
         sim.rotY = baseRotY - laneDiff * 0.05;
       } else if (sim.finished) {
-        // Smooth slowdown after crossing the finish line arch into tunnel run-off zone
+        // Smooth slowdown after crossing the finish line arch into run-off zone
         sim.speed = Math.max(0, sim.speed - 22.0 * dt);
         sim.trackDist = Math.min(TRACK_TOTAL_LENGTH, sim.trackDist + sim.speed * dt);
 
@@ -434,9 +450,12 @@ export function RivalCars() {
         tempTangent.normalize();
         tempNormal.set(-tempTangent.z, 0, tempTangent.x).normalize();
 
-        sim.x = tempPoint.x + tempNormal.x * sim.laneOffset;
+        sim.pushX = THREE.MathUtils.lerp(sim.pushX, 0, 8.0 * dt);
+        sim.pushZ = THREE.MathUtils.lerp(sim.pushZ, 0, 8.0 * dt);
+
+        sim.x = tempPoint.x + tempNormal.x * sim.laneOffset + sim.pushX;
         sim.y = 0.30;
-        sim.z = tempPoint.z + tempNormal.z * sim.laneOffset;
+        sim.z = tempPoint.z + tempNormal.z * sim.laneOffset + sim.pushZ;
         sim.rotY = Math.atan2(tempTangent.x, tempTangent.z);
       }
 
@@ -452,6 +471,58 @@ export function RivalCars() {
       rivalRadarPositions[idx].rotY = sim.rotY;
       rivalRadarPositions[idx].speed = sim.speed;
     });
+
+    // Rival-to-Rival Physics Collision (Prevents competitor cars from intersecting)
+    if (canRace) {
+      for (let i = 0; i < simState.current.length; i++) {
+        for (let j = i + 1; j < simState.current.length; j++) {
+          const r1 = simState.current[i];
+          const r2 = simState.current[j];
+          if (r1.finished || r2.finished) continue;
+
+          const col = checkCarCollision(
+            r1.x, r1.z, r1.rotY, RIVAL_HALF_LENGTH, RIVAL_HALF_WIDTH,
+            r2.x, r2.z, r2.rotY, RIVAL_HALF_LENGTH, RIVAL_HALF_WIDTH
+          );
+
+          if (col) {
+            const sepX = col.normalX * col.depth * 0.5;
+            const sepZ = col.normalZ * col.depth * 0.5;
+            r1.pushX += sepX;
+            r1.pushZ += sepZ;
+            r2.pushX -= sepX;
+            r2.pushZ -= sepZ;
+            r1.x += sepX;
+            r1.z += sepZ;
+            r2.x -= sepX;
+            r2.z -= sepZ;
+
+            // Lateral lane separation
+            if (r1.laneOffset <= r2.laneOffset) {
+              r1.laneOffset = THREE.MathUtils.clamp(r1.laneOffset - 0.25, -1.8, 1.8);
+              r2.laneOffset = THREE.MathUtils.clamp(r2.laneOffset + 0.25, -1.8, 1.8);
+            } else {
+              r1.laneOffset = THREE.MathUtils.clamp(r1.laneOffset + 0.25, -1.8, 1.8);
+              r2.laneOffset = THREE.MathUtils.clamp(r2.laneOffset - 0.25, -1.8, 1.8);
+            }
+            r1.targetLaneOffset = r1.laneOffset;
+            r2.targetLaneOffset = r2.laneOffset;
+
+            // Longitudinal speed adjustment
+            if (r1.trackDist > r2.trackDist) {
+              r2.speed = Math.max(12, r2.speed - 4.0 * dt);
+            } else {
+              r1.speed = Math.max(12, r1.speed - 4.0 * dt);
+            }
+
+            const grp1 = groupRefs.current[i];
+            if (grp1) grp1.position.set(r1.x, r1.y, r1.z);
+            const grp2 = groupRefs.current[j];
+            if (grp2) grp2.position.set(r2.x, r2.y, r2.z);
+          }
+        }
+      }
+    }
 
     // Compute player track distance and live ranking among 7 racers (P1 to P7)
     if (raceActive || raceFinished) {
