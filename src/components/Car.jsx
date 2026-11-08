@@ -588,6 +588,9 @@ export function Car() {
       rpm = 900 + normGearSpeed * 6800 + (inputState.forward ? 300 : 0);
     }
     s.rpm = Math.min(8000, Math.max(900, rpm));
+    if (s.currentGear !== gear && s.currentGear !== 'R' && gear !== 'R' && gear > s.currentGear && speedKmH > 25) {
+      soundManager.playGearShift();
+    }
     s.currentGear = gear;
 
     // Apply Transforms to 3D Car Root

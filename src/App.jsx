@@ -32,16 +32,18 @@ export default function App() {
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     setIsTouchDevice(hasTouch);
 
-    // 4. Audio context auto-init & resume on any user gesture (click, keypress, touch)
+    // 4. Audio context pre-init & instant resume on any user gesture (click, keypress, touch)
+    soundManager.init();
+
     const handleUserInteraction = () => {
       soundManager.init();
       soundManager.resume();
     };
 
-    window.addEventListener('click', handleUserInteraction, { passive: true });
-    window.addEventListener('pointerdown', handleUserInteraction, { passive: true });
-    window.addEventListener('keydown', handleUserInteraction, { passive: true });
-    window.addEventListener('touchstart', handleUserInteraction, { passive: true });
+    window.addEventListener('click', handleUserInteraction, { capture: true, passive: true });
+    window.addEventListener('pointerdown', handleUserInteraction, { capture: true, passive: true });
+    window.addEventListener('keydown', handleUserInteraction, { capture: true, passive: true });
+    window.addEventListener('touchstart', handleUserInteraction, { capture: true, passive: true });
 
     // 5. Suspend audio and save CPU/battery when tab is hidden or phone screen is locked
     const handleVisibilityChange = () => {

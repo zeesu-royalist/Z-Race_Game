@@ -9,9 +9,8 @@ class SoundSystem {
     this.currentProfile = 'jdm_turbo';
     this.lastCategory = '';
 
-    // Master Nodes
+    // Master Output Node
     this.masterGain = null;
-    this.compressor = null;
 
     // Engine Nodes
     this.engineGain = null;
@@ -42,55 +41,54 @@ class SoundSystem {
       if (!AudioCtx) return;
       this.ctx = new AudioCtx();
 
-      // Master Output Chain
+      // Master Output Chain directly to destination (unfiltered & loud)
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(1.0, this.ctx.currentTime);
-
-      // Dynamics Compressor (keeps audio loud, punchy and prevents digital clipping)
-      this.compressor = this.ctx.createDynamicsCompressor();
-      this.compressor.threshold.setValueAtTime(-8, this.ctx.currentTime);
-      this.compressor.knee.setValueAtTime(20, this.ctx.currentTime);
-      this.compressor.ratio.setValueAtTime(4, this.ctx.currentTime);
-      this.compressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
-      this.compressor.release.setValueAtTime(0.15, this.ctx.currentTime);
-
-      this.compressor.connect(this.masterGain);
+      this.masterGain.gain.setValueAtTime(this.enabled ? 1.0 : 0.0, this.ctx.currentTime);
       this.masterGain.connect(this.ctx.destination);
 
       // --- 1. ENGINE SYNTHESIZER ---
       this.engineGain = this.ctx.createGain();
-      this.engineGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+      this.engineGain.gain.setValueAtTime(0.40, this.ctx.currentTime);
 
       this.engineFilter = this.ctx.createBiquadFilter();
       this.engineFilter.type = 'lowpass';
-      this.engineFilter.frequency.setValueAtTime(650, this.ctx.currentTime);
+      this.engineFilter.frequency.setValueAtTime(800, this.ctx.currentTime);
       this.engineFilter.Q.setValueAtTime(2.2, this.ctx.currentTime);
 
       // Primary cylinder oscillator (sawtooth for aggressive engine growl)
       this.osc1 = this.ctx.createOscillator();
       this.osc1.type = 'sawtooth';
-      this.osc1.frequency.setValueAtTime(45, this.ctx.currentTime);
+      this.osc1.frequency.setValueAtTime(68, this.ctx.currentTime);
 
-      // Secondary harmonic oscillator (mechanical grit)
+      // Secondary harmonic oscillator (mechanical grit & transmission whine)
       this.osc2 = this.ctx.createOscillator();
       this.osc2.type = 'triangle';
-      this.osc2.frequency.setValueAtTime(90, this.ctx.currentTime);
+      this.osc2.frequency.setValueAtTime(136, this.ctx.currentTime);
 
-      // Sub exhaust rumble (deep bass pressure)
+      // Sub exhaust rumble (deep bass body)
       this.oscSub = this.ctx.createOscillator();
       this.oscSub.type = 'sine';
-      this.oscSub.frequency.setValueAtTime(25, this.ctx.currentTime);
+      this.oscSub.frequency.setValueAtTime(51, this.ctx.currentTime);
 
+      // Engine internal mix
       const engineMix = this.ctx.createGain();
-      engineMix.gain.setValueAtTime(0.85, this.ctx.currentTime);
+      engineMix.gain.setValueAtTime(1.0, this.ctx.currentTime);
+
+      const osc2Gain = this.ctx.createGain();
+      osc2Gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+      this.osc2.connect(osc2Gain);
+      osc2Gain.connect(engineMix);
+
+      const oscSubGain = this.ctx.createGain();
+      oscSubGain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+      this.oscSub.connect(oscSubGain);
+      oscSubGain.connect(engineMix);
 
       this.osc1.connect(engineMix);
-      this.osc2.connect(engineMix);
-      this.oscSub.connect(engineMix);
 
       engineMix.connect(this.engineFilter);
       this.engineFilter.connect(this.engineGain);
-      this.engineGain.connect(this.compressor);
+      this.engineGain.connect(this.masterGain);
 
       this.osc1.start();
       this.osc2.start();
@@ -129,7 +127,7 @@ class SoundSystem {
 
       this.skidNoise.connect(this.skidFilter);
       this.skidFilter.connect(this.skidGain);
-      this.skidGain.connect(this.compressor);
+      this.skidGain.connect(this.masterGain);
 
       this.skidNoise.start();
       this.skidSqueal.start();
@@ -148,7 +146,7 @@ class SoundSystem {
 
       nitroNoiseSource.connect(nitroFilter);
       nitroFilter.connect(this.nitroGain);
-      this.nitroGain.connect(this.compressor);
+      this.nitroGain.connect(this.masterGain);
       nitroNoiseSource.start();
 
       this.initialized = true;
@@ -209,73 +207,42 @@ class SoundSystem {
     const normRPM = Math.max(0, Math.min(1, (rpm - 900) / 7100));
     const t = this.ctx.currentTime;
 
-    // Distinct Procedural Sound Profiles
+    // Fundamental Frequencies tuned for audible sports car engine roar
+    let baseFreq, fFreq, targetGain;
+
     if (this.currentProfile === 'ev') {
-      // Futuristic High-Pitch Electric Turbine Whine
-      const evFreq = 110 + normRPM * 720;
+      baseFreq = 120 + normRPM * 680;
+      fFreq = 900 + normRPM * 3000;
+      targetGain = 0.25 + (throttle ? 0.35 : 0.08) + normRPM * 0.30;
       this.osc1.type = 'sine';
-      this.osc1.frequency.setTargetAtTime(evFreq, t, 0.05);
-      this.osc2.frequency.setTargetAtTime(evFreq * 2.0, t, 0.05);
-      this.oscSub.frequency.setTargetAtTime(evFreq * 0.5, t, 0.05);
-
-      const filterFreq = 900 + normRPM * 2800;
-      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
-
-      const targetGain = 0.22 + (throttle ? 0.32 : 0.08) + normRPM * 0.25;
-      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
     } else if (this.currentProfile === 'v8_muscle') {
-      // Deep Throaty American V8 Rumble
-      const v8Freq = 26 + normRPM * 185;
+      baseFreq = 55 + normRPM * 260;
+      fFreq = 500 + normRPM * 2400 + (throttle ? 1200 : 0);
+      targetGain = 0.38 + (throttle ? 0.42 : 0.12) + normRPM * 0.30;
       this.osc1.type = 'sawtooth';
-      this.osc1.frequency.setTargetAtTime(v8Freq, t, 0.05);
-      this.osc2.frequency.setTargetAtTime(v8Freq * 1.5, t, 0.05);
-      this.oscSub.frequency.setTargetAtTime(v8Freq * 0.5, t, 0.05);
-
-      const filterFreq = 350 + normRPM * 1800 + (throttle ? 900 : 0);
-      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
-
-      const targetGain = 0.30 + (throttle ? 0.38 : 0.12) + normRPM * 0.28;
-      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
     } else if (this.currentProfile === 'v12_screamer') {
-      // High-Revving Screaming Italian V12 / V10
-      const v12Freq = 42 + normRPM * 320;
+      baseFreq = 78 + normRPM * 360;
+      fFreq = 700 + normRPM * 3200 + (throttle ? 1400 : 0);
+      targetGain = 0.35 + (throttle ? 0.40 : 0.10) + normRPM * 0.30;
       this.osc1.type = 'sawtooth';
-      this.osc1.frequency.setTargetAtTime(v12Freq, t, 0.05);
-      this.osc2.frequency.setTargetAtTime(v12Freq * 1.5, t, 0.05);
-      this.oscSub.frequency.setTargetAtTime(v12Freq * 0.5, t, 0.05);
-
-      const filterFreq = 500 + normRPM * 3000 + (throttle ? 1200 : 0);
-      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
-
-      const targetGain = 0.28 + (throttle ? 0.36 : 0.10) + normRPM * 0.28;
-      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
     } else if (this.currentProfile === 'w16_quad') {
-      // Massive Quad-Turbo W16 Roar
-      const w16Freq = 30 + normRPM * 240;
+      baseFreq = 60 + normRPM * 280;
+      fFreq = 600 + normRPM * 2600 + (throttle ? 1300 : 0);
+      targetGain = 0.38 + (throttle ? 0.42 : 0.12) + normRPM * 0.30;
       this.osc1.type = 'sawtooth';
-      this.osc1.frequency.setTargetAtTime(w16Freq, t, 0.05);
-      this.osc2.frequency.setTargetAtTime(w16Freq * 1.6, t, 0.05);
-      this.oscSub.frequency.setTargetAtTime(w16Freq * 0.5, t, 0.05);
-
-      const filterFreq = 400 + normRPM * 2400 + (throttle ? 1100 : 0);
-      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
-
-      const targetGain = 0.30 + (throttle ? 0.38 : 0.12) + normRPM * 0.28;
-      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
     } else {
-      // JDM Twin-Turbo / GT3 Racing Engine
-      const baseFreq = 32 + normRPM * 220;
+      // JDM 2JZ Twin-Turbo / GT3 Racing Supercar
+      baseFreq = 68 + normRPM * 320;
+      fFreq = 650 + normRPM * 2800 + (throttle ? 1300 : 0);
+      targetGain = 0.35 + (throttle ? 0.40 : 0.10) + normRPM * 0.30;
       this.osc1.type = 'sawtooth';
-      this.osc1.frequency.setTargetAtTime(baseFreq, t, 0.05);
-      this.osc2.frequency.setTargetAtTime(baseFreq * 1.5, t, 0.05);
-      this.oscSub.frequency.setTargetAtTime(baseFreq * 0.5, t, 0.05);
-
-      const filterFreq = 380 + normRPM * 2200 + (throttle ? 1000 : 0);
-      this.engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
-
-      const targetGain = 0.28 + (throttle ? 0.35 : 0.10) + normRPM * 0.26;
-      this.engineGain.gain.setTargetAtTime(targetGain, t, 0.05);
     }
+
+    this.osc1.frequency.setTargetAtTime(baseFreq, t, 0.04);
+    this.osc2.frequency.setTargetAtTime(baseFreq * 2.0, t, 0.04);
+    this.oscSub.frequency.setTargetAtTime(baseFreq * 0.75, t, 0.04);
+    this.engineFilter.frequency.setTargetAtTime(fFreq, t, 0.06);
+    this.engineGain.gain.setTargetAtTime(targetGain, t, 0.04);
   }
 
   updateDrift(isDrifting, driftIntensity) {
@@ -304,14 +271,14 @@ class SoundSystem {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(350, t);
-      osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+      osc.frequency.setValueAtTime(450, t);
+      osc.frequency.exponentialRampToValueAtTime(120, t + 0.15);
 
-      gain.gain.setValueAtTime(0.25, t);
+      gain.gain.setValueAtTime(0.35, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
 
       osc.connect(gain);
-      gain.connect(this.compressor);
+      gain.connect(this.masterGain);
       osc.start(t);
       osc.stop(t + 0.2);
     } catch (e) {}
@@ -323,16 +290,16 @@ class SoundSystem {
       const t = this.ctx.currentTime;
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(130, t);
-      osc.frequency.exponentialRampToValueAtTime(35, t + 0.25);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(160, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.25);
 
-      const impactVol = Math.min(0.55, 0.25 * intensity);
+      const impactVol = Math.min(0.65, 0.35 * intensity);
       gain.gain.setValueAtTime(impactVol, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
 
       osc.connect(gain);
-      gain.connect(this.compressor);
+      gain.connect(this.masterGain);
       osc.start(t);
       osc.stop(t + 0.3);
     } catch (e) {}
@@ -349,11 +316,11 @@ class SoundSystem {
       osc.type = isGo ? 'triangle' : 'sine';
       osc.frequency.setValueAtTime(isGo ? 880 : 440, t);
 
-      gain.gain.setValueAtTime(isGo ? 0.35 : 0.25, t);
+      gain.gain.setValueAtTime(isGo ? 0.45 : 0.30, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + (isGo ? 0.35 : 0.15));
 
       osc.connect(gain);
-      gain.connect(this.compressor);
+      gain.connect(this.masterGain);
       osc.start(t);
       osc.stop(t + (isGo ? 0.35 : 0.15));
     } catch (e) {}
@@ -370,11 +337,11 @@ class SoundSystem {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, t + idx * 0.05);
 
-        gain.gain.setValueAtTime(0.18, t + idx * 0.05);
+        gain.gain.setValueAtTime(0.25, t + idx * 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.05 + 0.4);
 
         osc.connect(gain);
-        gain.connect(this.compressor);
+        gain.connect(this.masterGain);
         osc.start(t + idx * 0.05);
         osc.stop(t + idx * 0.05 + 0.4);
       });
