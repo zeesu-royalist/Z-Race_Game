@@ -10,9 +10,11 @@ const TARGET_CAR_LENGTH = 3.9;
 const SLS_RAW_LENGTH = 4.85;
 const SCALE_FACTOR = TARGET_CAR_LENGTH / SLS_RAW_LENGTH; // ~0.8041
 
-// Track Waypoints defining the full-city championship circuit (1.16 km)
+// Track Waypoints defining the full-city championship circuit (2.05 km)
 // Spans across South Grand Boulevard, Racing Tunnel, Turbo Alley Central Expressway,
-// Mid-City Highway, Far West Coastal Avenue, and North Metropolis Grand Finish Boulevard
+// Mid-City Highway, Far West Coastal Avenue, North Metropolis Sweeper,
+// Super Highway Straight, Mid-City Avenue, Cross Boulevard, East Metro Avenue,
+// and East Metropolis Grand Terminus Finish Line Arch!
 export const TRACK_WAYPOINTS = [
   // Sector 1: Grand Boulevard Start
   new THREE.Vector3(-3.0, 0.3, -4.0),
@@ -83,20 +85,71 @@ export const TRACK_WAYPOINTS = [
   new THREE.Vector3(-386.0, 0.3, -436.5),
   new THREE.Vector3(-377.0, 0.3, -441.5),
 
-  // Sector 7: North Metropolis Grand Finish Boulevard
+  // Sector 7: North Avenue Sprint
   new THREE.Vector3(-371.5, 0.3, -448.0),
-  new THREE.Vector3(-369.7, 0.3, -458.0),// Gate 7: Final Sprint
-  new THREE.Vector3(-369.7, 0.3, -472.0),
-  new THREE.Vector3(-369.7, 0.3, -488.0) // Gate 8: City End Finish Line Arch!
+  new THREE.Vector3(-369.7, 0.3, -458.0),// Gate 7: North Avenue Sprint
+  new THREE.Vector3(-369.7, 0.3, -475.0),
+  new THREE.Vector3(-369.3, 0.3, -495.0),// Gate 8: North Metropolis Gateway Arch
+  new THREE.Vector3(-367.5, 0.3, -505.0),
+  new THREE.Vector3(-364.5, 0.3, -512.0),
+  new THREE.Vector3(-360.5, 0.3, -520.0),
+  new THREE.Vector3(-350.0, 0.3, -528.0),
+
+  // Sector 8: North Metropolis Highway Sweeper
+  new THREE.Vector3(-325.0, 0.3, -535.0),
+  new THREE.Vector3(-285.0, 0.3, -542.0),
+  new THREE.Vector3(-265.3, 0.3, -550.0),// Gate 9: North Highway Apex
+  new THREE.Vector3(-261.0, 0.3, -558.0),
+  new THREE.Vector3(-259.5, 0.3, -568.0),
+  new THREE.Vector3(-254.0, 0.3, -576.0),
+  new THREE.Vector3(-248.0, 0.3, -583.0),
+
+  // Sector 9: Mid-North Super Highway Straight
+  new THREE.Vector3(-230.0, 0.3, -585.0),
+  new THREE.Vector3(-190.0, 0.3, -585.0),// Gate 10: Super Highway Straight
+  new THREE.Vector3(-160.0, 0.3, -585.0),
+  new THREE.Vector3(-144.0, 0.3, -580.0),
+
+  // Sector 10: Mid-City Avenue South
+  new THREE.Vector3(-136.3, 0.3, -560.0),
+  new THREE.Vector3(-136.3, 0.3, -520.0),
+  new THREE.Vector3(-136.3, 0.3, -500.0),// Gate 11: Mid-City Avenue South
+  new THREE.Vector3(-136.3, 0.3, -480.0),
+  new THREE.Vector3(-136.3, 0.3, -450.0),
+  new THREE.Vector3(-134.0, 0.3, -435.0),
+
+  // Sector 11: Cross Boulevard East
+  new THREE.Vector3(-120.0, 0.3, -427.0),
+  new THREE.Vector3(-90.0, 0.3, -425.6),
+  new THREE.Vector3(-60.0, 0.3, -425.6), // Gate 12: Cross Boulevard East
+  new THREE.Vector3(-35.0, 0.3, -427.0),
+  new THREE.Vector3(-22.0, 0.3, -435.0),
+
+  // Sector 12: East Metro Avenue North
+  new THREE.Vector3(-14.0, 0.3, -460.0),
+  new THREE.Vector3(-12.5, 0.3, -500.0),
+  new THREE.Vector3(-12.0, 0.3, -535.0),
+  new THREE.Vector3(-5.0, 0.3, -560.0),  // Gate 13: East Metro Avenue
+  new THREE.Vector3(5.0, 0.3, -580.0),
+  new THREE.Vector3(15.0, 0.3, -594.0),
+  new THREE.Vector3(26.0, 0.3, -604.0),
+
+  // Sector 13: East Metropolis Grand Terminus Finish Boulevard
+  new THREE.Vector3(38.0, 0.3, -610.0),
+  new THREE.Vector3(65.0, 0.3, -618.5),
+  new THREE.Vector3(100.0, 0.3, -620.8), // Gate 14: East Metro Grand Boulevard
+  new THREE.Vector3(140.0, 0.3, -620.8),
+  new THREE.Vector3(170.0, 0.3, -615.0),
+  new THREE.Vector3(182.0, 0.3, -604.0)  // Gate 15: East Metro Grand Terminus Finish Line Arch!
 ];
 
 // Precompute smooth centripetal Catmull-Rom road spline
 export const raceTrackCurve = new THREE.CatmullRomCurve3(TRACK_WAYPOINTS, false, 'centripetal');
 export const TRACK_TOTAL_LENGTH = raceTrackCurve.getLength();
-export const FINISH_LINE_DIST = 1156.0; // Distance along track to Finish Line Gate 8
+export const FINISH_LINE_DIST = 2044.8; // Distance along track to Finish Line Gate 15
 
 // Precomputed track samples for 60 FPS zero-overhead player distance lookup (0 GC)
-const SAMPLE_COUNT = 300;
+const SAMPLE_COUNT = 500;
 const TRACK_SAMPLES = [];
 for (let i = 0; i <= SAMPLE_COUNT; i++) {
   const t = i / SAMPLE_COUNT;
@@ -330,7 +383,7 @@ export function RivalCars() {
           // Subtle lane shifting for overtaking maneuvers (safe road corridor)
           if (Math.random() > 0.5) {
             const laneShift = (Math.random() - 0.5) * 1.8;
-            sim.targetLaneOffset = THREE.MathUtils.clamp(cfg.initialLane + laneShift, -2.2, 2.2);
+            sim.targetLaneOffset = THREE.MathUtils.clamp(cfg.initialLane + laneShift, -1.8, 1.8);
           }
         }
 

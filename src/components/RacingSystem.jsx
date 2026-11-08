@@ -5,9 +5,11 @@ import confetti from 'canvas-confetti';
 import { useGameStore } from '../store/gameStore';
 import { soundManager } from '../utils/AudioSystem';
 
-// Checkpoints defining the Full-City Championship Circuit (1.16 km)
+// Checkpoints defining the Full-City Championship Circuit (2.05 km)
 // Spanning from South Grand Boulevard through Racing Tunnel, Central Expressway,
-// Mid-City Highway, Far West Coastal Avenue, and North Metropolis Grand Finish Arch
+// Mid-City Highway, Far West Coastal Avenue, North Metropolis Sweeper,
+// Super Highway Straight, Mid-City Avenue, Cross Boulevard, East Metro Avenue,
+// and East Metropolis Grand Terminus Finish Line Arch
 export const CIRCUIT_CHECKPOINTS = [
   { id: 0, pos: [-3.0, 1.2, 28.0], name: 'Start Line', rotY: 0 },
   { id: 1, pos: [-3.0, 1.2, 55.0], name: 'Boulevard Sprint', rotY: 0 },
@@ -16,8 +18,15 @@ export const CIRCUIT_CHECKPOINTS = [
   { id: 4, pos: [-300.0, 1.2, -211.2], name: 'Mid-City Highway', rotY: Math.PI / 2 },
   { id: 5, pos: [-479.2, 1.2, -330.0], name: 'Coastal Subway Bridge', rotY: Math.PI },
   { id: 6, pos: [-442.0, 1.2, -428.5], name: 'North Sweeper', rotY: -Math.PI / 2 },
-  { id: 7, pos: [-369.7, 1.2, -458.0], name: 'Grand Finale Sprint', rotY: Math.PI },
-  { id: 8, pos: [-369.7, 1.2, -488.0], name: 'City End Finish Line Arch', rotY: Math.PI }
+  { id: 7, pos: [-369.7, 1.2, -458.0], name: 'North Avenue Sprint', rotY: Math.PI },
+  { id: 8, pos: [-369.3, 1.2, -495.0], name: 'North Metropolis Gateway Arch', rotY: Math.PI },
+  { id: 9, pos: [-265.3, 1.2, -550.0], name: 'North Highway Apex', rotY: 2.33 },
+  { id: 10, pos: [-190.0, 1.2, -585.0], name: 'Super Highway Straight', rotY: Math.PI / 2 },
+  { id: 11, pos: [-136.3, 1.2, -500.0], name: 'Mid-City Avenue South', rotY: 0 },
+  { id: 12, pos: [-60.0, 1.2, -425.6], name: 'Cross Boulevard East', rotY: Math.PI / 2 },
+  { id: 13, pos: [-5.0, 1.2, -560.0], name: 'East Metro Avenue', rotY: 2.77 },
+  { id: 14, pos: [100.0, 1.2, -620.8], name: 'East Metro Grand Boulevard', rotY: Math.PI / 2 },
+  { id: 15, pos: [182.0, 1.2, -604.0], name: 'East Metro Terminus Finish Line Arch', rotY: 0.83 }
 ];
 
 // Shared geometry buffers across gates (Eliminates redundant GPU buffer allocations)

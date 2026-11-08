@@ -47,7 +47,7 @@ export const useGameStore = create((set, get) => ({
   lapTime: 0,
   bestLapTime: null,
   currentCheckpoint: 0,
-  totalCheckpoints: 9,
+  totalCheckpoints: 16,
   raceFinished: false,
 
   // Reset Signal
