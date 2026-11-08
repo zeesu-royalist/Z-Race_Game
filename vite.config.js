@@ -173,5 +173,24 @@ export default defineConfig({
     port: 5173,
     host: true
   },
+  build: {
+    target: 'es2020',
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/three') || id.includes('node_modules/@react-three') || id.includes('three-mesh-bvh')) {
+            return 'three-vendor';
+          }
+          if (id.includes('node_modules/react') || id.includes('node_modules/zustand')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/lucide-react') || id.includes('node_modules/canvas-confetti')) {
+            return 'ui-vendor';
+          }
+        }
+      }
+    }
+  },
   assetsInclude: ['**/*.glb', '**/*.gltf', '**/*.hdr']
 });

@@ -1,9 +1,10 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGameStore } from '../store/gameStore';
+import { DEVICE_TIER } from '../utils/deviceTier';
 
-const MAX_SKID_MARKS = 120; // 60 pairs of skidmark segments
+const MAX_SKID_MARKS = DEVICE_TIER.isLowTier ? 60 : 120;
 
 /**
  * Ultra-Lightweight, Zero-GC Instanced Tire Skidmark Trail
@@ -20,6 +21,7 @@ export function TireSkidmarks() {
       rotY: 0,
       opacity: 0,
       life: 0,
+      maxLife: 6.0,
       active: false
     }))
   );
@@ -32,6 +34,21 @@ export function TireSkidmarks() {
     sinR: 0,
     cosR: 0
   });
+
+  // Initialize hidden instances once on mount (avoids resetting 120 matrices every frame)
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+
+    dummy.position.set(0, -999, 0);
+    dummy.scale.setScalar(0);
+    dummy.updateMatrix();
+
+    for (let i = 0; i < MAX_SKID_MARKS; i++) {
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [dummy]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -53,17 +70,15 @@ export function TireSkidmarks() {
       m.sinR = Math.sin(carRotation);
       m.cosR = Math.cos(carRotation);
 
-      // Left & right rear tire offsets in local space (aligned to 3.9m car scale)
       const tireOffsets = [-0.64, 0.64];
 
       for (let i = 0; i < 2; i++) {
         const offX = tireOffsets[i];
         const offZ = -1.4;
 
-        // Rotate offset by car rotation
         const worldX = m.carPos.x + offX * m.cosR + offZ * m.sinR;
         const worldZ = m.carPos.z - offX * m.sinR + offZ * m.cosR;
-        const worldY = m.carPos.y + 0.015; // Just slightly above the asphalt
+        const worldY = m.carPos.y + 0.015;
 
         const mark = markList[nextIndex.current % MAX_SKID_MARKS];
         nextIndex.current++;
@@ -71,21 +86,17 @@ export function TireSkidmarks() {
         mark.active = true;
         mark.pos.set(worldX, worldY, worldZ);
         mark.rotY = carRotation;
-        mark.life = 6.0; // Visible for 6 seconds
-        mark.maxLife = 6.0;
+        mark.life = 5.0;
+        mark.maxLife = 5.0;
       }
     }
 
-    // Update active skidmarks (fade over time)
+    // Only update active skidmarks (O(active) instead of O(total) per frame)
     let needsUpdate = false;
     for (let i = 0; i < MAX_SKID_MARKS; i++) {
       const mark = markList[i];
       if (!mark.active) {
-        dummy.position.set(0, -999, 0);
-        dummy.scale.setScalar(0);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(i, dummy.matrix);
-        continue;
+        continue; // Skip inactive marks!
       }
 
       needsUpdate = true;
@@ -99,8 +110,6 @@ export function TireSkidmarks() {
         continue;
       }
 
-      // Fade opacity as life expires
-      const fadeProgress = mark.life / mark.maxLife;
       const currentScaleX = 0.28;
       const currentScaleZ = Math.min(1.0, 0.45 * (speed / 40));
 
@@ -128,4 +137,3 @@ export function TireSkidmarks() {
     </instancedMesh>
   );
 }
-

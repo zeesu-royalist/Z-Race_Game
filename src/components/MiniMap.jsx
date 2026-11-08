@@ -68,88 +68,106 @@ export function MiniMap() {
     const toRadarX = (wx) => ((wx - MAP_BOUNDS.minX) / MAP_BOUNDS.spanX) * drawWidth + 8;
     const toRadarY = (wz) => ((wz - MAP_BOUNDS.minZ) / MAP_BOUNDS.spanZ) * drawHeight + 8;
 
-    const renderRadar = () => {
-      const { carPosition, carRotation, currentCheckpoint, raceActive } = useGameStore.getState();
+    // --- PRE-RENDER STATIC RADAR BASE ONCE INTO CACHED OFFSCREEN CANVAS ---
+    const bgCanvas = document.createElement('canvas');
+    bgCanvas.width = width;
+    bgCanvas.height = height;
+    const bgCtx = bgCanvas.getContext('2d', { alpha: true });
 
-      const cx = carPosition[0];
-      const cz = carPosition[2];
+    // Radar Background Glass Plate
+    bgCtx.fillStyle = 'rgba(8, 13, 22, 0.92)';
+    bgCtx.beginPath();
+    bgCtx.roundRect(0, 0, width, height, 14);
+    bgCtx.fill();
 
-      // Update District & Coords HUD badge without React state re-renders
-      if (districtRef.current) {
-        districtRef.current.textContent = getDistrictName(cx, cz);
-      }
-      if (coordsRef.current) {
-        coordsRef.current.textContent = `X:${Math.round(cx)} Z:${Math.round(cz)}`;
-      }
+    // Border glow
+    bgCtx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+    bgCtx.lineWidth = 1.2;
+    bgCtx.stroke();
 
-      ctx.clearRect(0, 0, width, height);
+    // GPS Sector Grid
+    bgCtx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
+    bgCtx.lineWidth = 1;
+    for (let i = 25; i < width; i += 25) {
+      bgCtx.beginPath();
+      bgCtx.moveTo(i, 0);
+      bgCtx.lineTo(i, height);
+      bgCtx.stroke();
+    }
+    for (let j = 25; j < height; j += 25) {
+      bgCtx.beginPath();
+      bgCtx.moveTo(0, j);
+      bgCtx.lineTo(width, j);
+      bgCtx.stroke();
+    }
 
-      // Radar Background Glass Plate
-      ctx.fillStyle = 'rgba(8, 13, 22, 0.92)';
-      ctx.beginPath();
-      ctx.roundRect(0, 0, width, height, 14);
-      ctx.fill();
+    // District Watermark Labels
+    bgCtx.font = '600 7px "Orbitron", sans-serif';
+    bgCtx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+    bgCtx.fillText('NORTH METRO', toRadarX(-160), toRadarY(-590));
+    bgCtx.fillText('WEST DIST', toRadarX(-430), toRadarY(-360));
+    bgCtx.fillText('DOWNTOWN', toRadarX(-120), toRadarY(-140));
+    bgCtx.fillText('GRAND BLVD', toRadarX(20), toRadarY(70));
+    bgCtx.fillText('EAST METRO', toRadarX(140), toRadarY(-40));
 
-      // Border glow
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
+    // Draw Unlocked City Arterial Road Network
+    bgCtx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    bgCtx.lineWidth = 2.0;
+    bgCtx.lineCap = 'round';
+    bgCtx.lineJoin = 'round';
 
-      // GPS Sector Grid
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.06)';
-      ctx.lineWidth = 1;
-      for (let i = 25; i < width; i += 25) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, height);
-        ctx.stroke();
-      }
-      for (let j = 25; j < height; j += 25) {
-        ctx.beginPath();
-        ctx.moveTo(0, j);
-        ctx.lineTo(width, j);
-        ctx.stroke();
-      }
-
-      // District Watermark Labels
-      ctx.font = '600 7px "Orbitron", sans-serif';
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
-      ctx.fillText('NORTH METRO', toRadarX(-160), toRadarY(-590));
-      ctx.fillText('WEST DIST', toRadarX(-430), toRadarY(-360));
-      ctx.fillText('DOWNTOWN', toRadarX(-120), toRadarY(-140));
-      ctx.fillText('GRAND BLVD', toRadarX(20), toRadarY(70));
-      ctx.fillText('EAST METRO', toRadarX(140), toRadarY(-40));
-
-      // Draw Unlocked City Arterial Road Network
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-      ctx.lineWidth = 2.0;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      CITY_ROADS.forEach((road) => {
-        ctx.beginPath();
-        road.forEach((pt, idx) => {
-          const rx = toRadarX(pt[0]);
-          const ry = toRadarY(pt[1]);
-          if (idx === 0) ctx.moveTo(rx, ry);
-          else ctx.lineTo(rx, ry);
-        });
-        ctx.stroke();
+    CITY_ROADS.forEach((road) => {
+      bgCtx.beginPath();
+      road.forEach((pt, idx) => {
+        const rx = toRadarX(pt[0]);
+        const ry = toRadarY(pt[1]);
+        if (idx === 0) bgCtx.moveTo(rx, ry);
+        else bgCtx.lineTo(rx, ry);
       });
+      bgCtx.stroke();
+    });
 
-      // Highlight Main Grand Boulevard (Spawn Highway)
-      const gbX1 = toRadarX(-3.0);
-      const gbY1 = toRadarY(-80);
-      const gbX2 = toRadarX(-3.0);
-      const gbY2 = toRadarY(160);
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      ctx.moveTo(gbX1, gbY1);
-      ctx.lineTo(gbX2, gbY2);
-      ctx.stroke();
+    // Highlight Main Grand Boulevard (Spawn Highway)
+    const gbX1 = toRadarX(-3.0);
+    const gbY1 = toRadarY(-80);
+    const gbX2 = toRadarX(-3.0);
+    const gbY2 = toRadarY(160);
+    bgCtx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+    bgCtx.lineWidth = 3.5;
+    bgCtx.beginPath();
+    bgCtx.moveTo(gbX1, gbY1);
+    bgCtx.lineTo(gbX2, gbY2);
+    bgCtx.stroke();
 
-      // Circuit Track Connecting Lines (when race active or overview)
+    let prevDistrict = '';
+    let prevCoordsText = '';
+
+    const renderRadar = () => {
+      const state = useGameStore.getState();
+      const carPos = state.carPosition;
+      const carRot = state.carRotation;
+      const raceActive = state.raceActive;
+      const currentCheckpoint = state.currentCheckpoint;
+
+      const cx = carPos[0];
+      const cz = carPos[2];
+
+      // Update District & Coords HUD badge without layout thrashing
+      const dName = getDistrictName(cx, cz);
+      if (districtRef.current && dName !== prevDistrict) {
+        districtRef.current.textContent = dName;
+        prevDistrict = dName;
+      }
+      const coordsText = `X:${Math.round(cx)} Z:${Math.round(cz)}`;
+      if (coordsRef.current && coordsText !== prevCoordsText) {
+        coordsRef.current.textContent = coordsText;
+        prevCoordsText = coordsText;
+      }
+
+      // 1. Blit cached background in 1 ultra-fast drawImage call (0% redraw cost!)
+      ctx.drawImage(bgCanvas, 0, 0);
+
+      // 2. Circuit Track Connecting Lines (when race active)
       if (raceActive) {
         ctx.strokeStyle = 'rgba(255, 170, 0, 0.55)';
         ctx.lineWidth = 2.0;
@@ -182,7 +200,7 @@ export function MiniMap() {
         });
       }
 
-      // Player Arrow Marker (Position & Real-time Orientation)
+      // 3. Player Arrow Marker (Position & Real-time Orientation)
       const carX = toRadarX(cx);
       const carY = toRadarY(cz);
 
@@ -195,11 +213,16 @@ export function MiniMap() {
 
       ctx.save();
       ctx.translate(carX, carY);
-      ctx.rotate(carRotation);
+      ctx.rotate(carRot);
 
+      // Soft glow aura without expensive software Gaussian shadowBlur
+      ctx.fillStyle = 'rgba(255, 34, 68, 0.22)';
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Sharp racing chevron
       ctx.fillStyle = '#ff2244';
-      ctx.shadowColor = '#ff2244';
-      ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.moveTo(0, 6.5);
       ctx.lineTo(-4, -5.5);

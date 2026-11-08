@@ -151,6 +151,8 @@ class SoundSystem {
   }
 
   setProfile(category = '') {
+    if (this.lastCategory === category) return;
+    this.lastCategory = category;
     const cat = (category || '').toLowerCase();
     if (cat.includes('ev') || cat.includes('electric')) {
       this.currentProfile = 'ev';
@@ -170,9 +172,13 @@ class SoundSystem {
       if (this.engineGain) this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
       return;
     }
-    this.resume();
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
 
-    if (category) this.setProfile(category);
+    if (category && category !== this.lastCategory) {
+      this.setProfile(category);
+    }
 
     const normRPM = Math.max(0, Math.min(1, (rpm - 900) / 7100));
     const t = this.ctx.currentTime;

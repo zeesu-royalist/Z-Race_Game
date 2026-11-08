@@ -8,12 +8,12 @@ export function CarCustomizerModal({ isOpen, onClose }) {
   const selectCar = useGameStore((s) => s.selectCar);
   const fetchCars = useGameStore((s) => s.fetchCars);
 
-  // Re-scan cars folder each time modal is opened
+  // Fetch cars if catalog is empty when modal is opened
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && cars.length === 0) {
       fetchCars();
     }
-  }, [isOpen, fetchCars]);
+  }, [isOpen, fetchCars, cars.length]);
 
   if (!isOpen) return null;
 

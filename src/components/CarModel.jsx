@@ -1,9 +1,10 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '../store/gameStore';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { DEVICE_TIER } from '../utils/deviceTier';
 
 // Target standard sports car length in meters (proportionally balanced to city road lanes)
 const TARGET_CAR_LENGTH = 3.9;
@@ -18,9 +19,9 @@ const KNOWN_ORIENTATIONS = {
   'ferrari_488_pista_widebody.glb': [0, -Math.PI / 2, 0]
 };
 
-// Lightweight, Zero-Allocation Instanced Tire Smoke Particle System
+// Lightweight, Zero-Allocation Instanced Tire Smoke Particle System (Optimized for Low-End GPUs)
 function TireSmokeEmitter({ isDrifting }) {
-  const maxParticles = 50;
+  const maxParticles = DEVICE_TIER.isLowTier ? 25 : 50;
   const meshRef = useRef();
   const dummy = useMemo(() => new THREE.Object3D(), []);
 
@@ -45,7 +46,7 @@ function TireSmokeEmitter({ isDrifting }) {
     if (!mesh) return;
 
     spawnTimer.current += dt;
-    if (isDrifting && spawnTimer.current > 0.035) {
+    if (isDrifting && spawnTimer.current > 0.04) {
       spawnTimer.current = 0;
       const sides = [-0.64, 0.64];
       for (let s = 0; s < 2; s++) {
@@ -112,12 +113,11 @@ function TireSmokeEmitter({ isDrifting }) {
 
   return (
     <instancedMesh ref={meshRef} args={[null, null, maxParticles]}>
-      <dodecahedronGeometry args={[0.28, 0]} />
-      <meshStandardMaterial
+      <planeGeometry args={[0.32, 0.32]} />
+      <meshBasicMaterial
         color="#d2dce6"
         transparent
         opacity={0.34}
-        roughness={0.9}
         depthWrite={false}
       />
     </instancedMesh>
@@ -142,6 +142,7 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     rearWheelsRef.current = [];
 
     const fileName = (url || '').split('/').pop();
+    const maxAnisotropy = DEVICE_TIER.isLowTier ? 1 : 2;
 
     // 1. Material Adaptation & Color Correction
     root.traverse((node) => {
@@ -153,10 +154,13 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
       }
 
       if (node.isMesh) {
-        node.castShadow = true;
-        node.receiveShadow = true;
-        // Never prematurely frustum-cull car body meshes/skins
-        node.frustumCulled = false;
+        // Only primary car exterior meshes cast shadows; disable receiveShadow on car parts
+        // to avoid self-shadow acne and cut draw-call shader overhead in half!
+        const isGlass = name.includes('glass') || name.includes('window') || name.includes('windshield');
+        const isInterior = name.includes('interior') || name.includes('seat') || name.includes('steering');
+        
+        node.castShadow = !isGlass && !isInterior;
+        node.receiveShadow = false;
 
         if (node.material) {
           const mats = Array.isArray(node.material) ? node.material : [node.material];
@@ -164,13 +168,13 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
             // Fix sRGB color space on all textures
             if (mat.map) {
               mat.map.colorSpace = THREE.SRGBColorSpace;
+              mat.map.anisotropy = maxAnisotropy;
               mat.map.needsUpdate = true;
             }
 
             const matName = (mat.name || '').toLowerCase();
 
             // 2026 Lamborghini Fenomeno fix:
-            // Ensure radiant metallic pearl / golden yellow finish and clearcoat
             if (fileName.includes('fenomeno') || fileName.includes('lamborghini_fenomeno')) {
               if (mat.name === 'Paint' || matName.includes('paint')) {
                 mat.roughness = 0.18;
@@ -184,22 +188,20 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
             }
 
             // Ferrari 488 Pista Widebody fix:
-            // "GREEN_car_paint" was exported with baseColor [0,0,0,1]
             else if (mat.name === 'GREEN_car_paint' || matName.includes('green_car_paint')) {
-              mat.color.set('#15803d'); // Deep Emerald / British Racing Green
+              mat.color.set('#15803d');
               mat.roughness = 0.2;
               mat.metalness = 0.5;
               if ('clearcoat' in mat) mat.clearcoat = 1.0;
             } else if (mat.name === 'Coloured' && fileName.includes('ferrari')) {
-              mat.color.set('#1e293b'); // Dark carbon aero trim
+              mat.color.set('#1e293b');
               mat.roughness = 0.35;
               mat.metalness = 0.5;
             }
 
             // BMW M4 Razor Edition fix:
-            // "chassis.011" is the main body shell with black baseColor
             else if (mat.name === 'chassis.011' || (fileName.includes('bmw') && matName.includes('chassis'))) {
-              mat.color.set('#c8d0dc'); // Razor Metallic Silver
+              mat.color.set('#c8d0dc');
               mat.roughness = 0.22;
               mat.metalness = 0.75;
               if ('clearcoat' in mat) mat.clearcoat = 0.9;
@@ -236,11 +238,11 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
               const isBody = matName.includes('paint') || matName.includes('body') || matName.includes('chassis') || matName.includes('car');
 
               if (isBody) {
-                mat.color.set('#242b35'); // Deep metallic anthracite
+                mat.color.set('#242b35');
                 mat.roughness = 0.25;
                 mat.metalness = 0.6;
               } else if (isTire) {
-                mat.color.set('#1a1a1a'); // Dark rubber
+                mat.color.set('#1a1a1a');
                 mat.roughness = 0.85;
                 mat.metalness = 0.05;
               } else {
@@ -271,13 +273,9 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     if (explicitRot) {
       root.rotation.set(explicitRot[0], explicitRot[1], explicitRot[2]);
     } else {
-      // General Auto-Orientation Engine:
-      // If length is along X axis (car is sideways): rotate -90 deg on Y to face +Z
       if (rawSize.x > rawSize.z * 1.3 && rawSize.x > rawSize.y) {
         root.rotation.y = -Math.PI / 2;
-      }
-      // If length is along Y axis (Blender Z-up): rotate -90 deg on X
-      else if (rawSize.y > rawSize.z * 1.3 && rawSize.y > rawSize.x) {
+      } else if (rawSize.y > rawSize.z * 1.3 && rawSize.y > rawSize.x) {
         root.rotation.x = -Math.PI / 2;
       }
     }
@@ -293,9 +291,7 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     // 5. Scale Normalization (Normalized to standard 3.90m length)
     const scaleMultiplier = TARGET_CAR_LENGTH / size.z;
 
-    // 6. Perfect Center & Tire Alignment:
-    // Center laterally (X = 0) and longitudinally (Z = 0)
-    // Anchor the tire bottom exactly at Y = 0.0
+    // 6. Perfect Center & Tire Alignment
     root.position.x = -center.x;
     root.position.y = -box.min.y;
     root.position.z = -center.z;
@@ -307,7 +303,7 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
     wrapper.scale.setScalar(scaleMultiplier);
     wrapper.updateMatrixWorld(true);
 
-    // 8. Find and Register Wheels for Steering & Rolling (supports meshes & rigged bone armatures)
+    // 8. Find and Register Wheels for Steering & Rolling
     root.traverse((node) => {
       const name = (node.name || '').toLowerCase();
       const isWheelNode =
@@ -333,15 +329,29 @@ function UniversalCarGLB({ url, steerAngle = 0, wheelRotation = 0 }) {
       }
     });
 
-    console.log(`[CarModel] Successfully configured: ${fileName}`, {
-      finalLength: TARGET_CAR_LENGTH,
-      scale: scaleMultiplier.toFixed(4),
+    console.log(`[CarModel] Configured & optimized: ${fileName}`, {
       frontWheels: frontWheelsRef.current.length,
       rearWheels: rearWheelsRef.current.length
     });
 
     return { wrapper };
   }, [scene, url]);
+
+  // Clean up cloned materials/textures on car swap or unmount to prevent VRAM memory leak
+  useEffect(() => {
+    return () => {
+      if (adapted?.wrapper) {
+        adapted.wrapper.traverse((child) => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach((m) => {
+              if (m && typeof m.dispose === 'function') m.dispose();
+            });
+          }
+        });
+      }
+    };
+  }, [adapted]);
 
   // High-performance 60-120 FPS wheel animation
   useFrame(() => {
@@ -379,7 +389,7 @@ export function CarModel({
         />
       )}
 
-      {/* Dynamic Tire Smoke Particles when Drifting */}
+      {/* Dynamic Tire Smoke Particles when Drifting (Low-fillrate instanced quads) */}
       <TireSmokeEmitter isDrifting={isDrifting} />
 
       {/* Projected High-Beam Headlights */}
@@ -387,21 +397,21 @@ export function CarModel({
         <>
           <spotLight
             position={[-0.64, 0.38, 1.82]}
-            target-position={[-0.64, -0.6, 50]}
+            target-position={[-0.64, -0.6, 40]}
             color="#eaf5ff"
-            intensity={42}
-            distance={65}
+            intensity={DEVICE_TIER.isLowTier ? 24 : 38}
+            distance={DEVICE_TIER.isLowTier ? 38 : 52}
             angle={0.52}
-            penumbra={0.6}
+            penumbra={0.55}
           />
           <spotLight
             position={[0.64, 0.38, 1.82]}
-            target-position={[0.64, -0.6, 50]}
+            target-position={[0.64, -0.6, 40]}
             color="#eaf5ff"
-            intensity={42}
-            distance={65}
+            intensity={DEVICE_TIER.isLowTier ? 24 : 38}
+            distance={DEVICE_TIER.isLowTier ? 38 : 52}
             angle={0.52}
-            penumbra={0.6}
+            penumbra={0.55}
           />
         </>
       )}
@@ -409,9 +419,11 @@ export function CarModel({
       {/* Nitro Boost Thruster Flame */}
       {isNitroActive && (
         <group position={[0, 0.3, -1.9]}>
-          <pointLight color="#00f0ff" intensity={14} distance={9} />
+          {DEVICE_TIER.enableExtraLights && (
+            <pointLight color="#00f0ff" intensity={8} distance={5} />
+          )}
           <mesh rotation={[-Math.PI / 2, 0, 0]}>
-            <coneGeometry args={[0.13, 1.3, 16]} />
+            <coneGeometry args={[0.13, 1.3, 12]} />
             <meshBasicMaterial color="#00e5ff" transparent opacity={0.85} />
           </mesh>
         </group>
@@ -420,7 +432,9 @@ export function CarModel({
       {/* Taillight Brake Glow */}
       {isBraking && (
         <group position={[0, 0.42, -1.9]}>
-          <pointLight color="#ff0022" intensity={12} distance={6} />
+          {DEVICE_TIER.enableExtraLights && (
+            <pointLight color="#ff0022" intensity={8} distance={4} />
+          )}
         </group>
       )}
     </group>

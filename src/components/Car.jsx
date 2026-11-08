@@ -30,6 +30,15 @@ export function Car() {
   const headlights = useGameStore((s) => s.headlights);
   const soundEnabled = useGameStore((s) => s.soundEnabled);
 
+  // Cached active car profile & tuning to eliminate per-frame object lookups
+  const activeCarCategoryRef = useRef('jdm_turbo');
+  const tuningRef = useRef({
+    maxSpeed: 64,
+    accelRate: 19,
+    gripFactor: 0.9,
+    turnMultiplier: 1.0
+  });
+
   // Vehicle dynamics physics state
   const state = useRef({
     position: SPAWN_POS.clone(),
@@ -44,6 +53,7 @@ export function Car() {
     isGrounded: true,
     isDrifting: false,
     driftIntensity: 0,
+    driftScore: 0,
     currentGear: 1,
     rpm: 900,
     isBraking: false,
@@ -61,7 +71,9 @@ export function Car() {
     wallRaycaster: new THREE.Raycaster(),
     rayOrigin: new THREE.Vector3(),
     wallOrigin: new THREE.Vector3(),
-    checkDir: new THREE.Vector3()
+    checkDir: new THREE.Vector3(),
+    groundHits: [],
+    wallHits: []
   });
 
   // Setup Keyboard Listeners
@@ -136,7 +148,7 @@ export function Car() {
           inputState.handbrake = false;
           break;
         case 'ShiftLeft':
-        case 'ShiftRight':
+          case 'ShiftRight':
           inputState.nitro = false;
           break;
         default:
@@ -165,6 +177,7 @@ export function Car() {
       s.angularVelocity = 0;
       s.verticalVelocity = 0;
       s.isDrifting = false;
+      s.driftScore = 0;
       s.currentGear = 1;
       s.rpm = 900;
       if (carGroup.current) {
@@ -202,13 +215,25 @@ export function Car() {
     }
   }, [teleportSignal]);
 
-  // Safe car model swap in-place without jarring physics glitches
+  // Cache tuning and sound profile once when car changes (Zero per-frame array searches)
   useEffect(() => {
     const s = state.current;
     s.speed = 0;
     s.angularVelocity = 0;
     s.steerAngle = 0;
     s.verticalVelocity = 0;
+
+    const car = useGameStore.getState().cars.find((c) => c.id === currentCarId);
+    if (car) {
+      activeCarCategoryRef.current = car.category || '';
+      tuningRef.current = car.tuning || {
+        maxSpeed: 64,
+        accelRate: 19,
+        gripFactor: 0.9,
+        turnMultiplier: 1.0
+      };
+      soundManager.setProfile(car.category || '');
+    }
   }, [currentCarId]);
 
   // Highly Optimized 60-120 FPS Vehicle Physics Loop
@@ -244,13 +269,8 @@ export function Car() {
       s.steerAngle = THREE.MathUtils.lerp(s.steerAngle, 0, 8.5 * dt);
     }
 
-    // Read active car tuning parameters
-    const tuning = useGameStore.getState().carTuning || {
-      maxSpeed: 64,
-      accelRate: 19,
-      gripFactor: 0.9,
-      turnMultiplier: 1.0
-    };
+    // Read cached active car tuning parameters
+    const tuning = tuningRef.current;
 
     // --- 3. ACCELERATION & BRAKING ---
     const maxForwardSpeed = (tuning.maxSpeed || 64) * nitroMultiplier;
@@ -315,8 +335,7 @@ export function Car() {
     s.driftIntensity = s.isDrifting ? Math.min(1.0, (speedKmH / 100) * (inputState.handbrake ? 1.4 : 0.8)) : 0;
 
     if (s.isDrifting) {
-      const driftPoints = Math.round(s.driftIntensity * 10);
-      useGameStore.getState().addDriftScore(driftPoints);
+      s.driftScore += Math.round(s.driftIntensity * 10);
     }
 
     // --- 5. POSITION DISPLACEMENT (Zero GC) ---
@@ -333,25 +352,24 @@ export function Car() {
       s.position.z += m.rightVec.z * slipAmount;
     }
 
-    // --- 6. BVH SUSPENSION & MULTI-TIER ROAD/BRIDGE RAYCAST ---
+    // --- 6. BVH SUSPENSION & MULTI-TIER ROAD/BRIDGE RAYCAST (Zero Array Allocations) ---
     if (cityColliders.length > 0) {
-      // Ray originates just above wheel level (0.45m), strictly below overhead bridges/metro lines
       m.rayOrigin.copy(s.position);
       m.rayOrigin.y += 0.45;
       m.raycaster.set(m.rayOrigin, m.downVec);
       m.raycaster.far = 25.0;
 
-      const groundHits = m.raycaster.intersectObjects(cityColliders, true);
+      // Passing m.groundHits and recursive=false eliminates per-frame heap allocations & recursive tree traversals
+      m.groundHits.length = 0;
+      m.raycaster.intersectObjects(cityColliders, false, m.groundHits);
+      const groundHits = m.groundHits;
 
-      // Find the highest valid upward drivable surface directly below the car
       let validHit = null;
       for (let i = 0; i < groundHits.length; i++) {
         const h = groundHits[i];
-        // Must be upward-facing surface (ignore bridge undersides/ceilings/vertical walls)
-        // AND must be at or below current car step height (cannot step up onto overhead bridges)
         if (h.normal && h.normal.y > 0.45 && h.point.y <= s.position.y + 0.35) {
           validHit = h;
-          break; // First match is closest to ray origin (highest surface directly under car)
+          break;
         }
       }
 
@@ -360,7 +378,6 @@ export function Car() {
         const targetY = groundHeight + 0.02;
         const diff = s.position.y - targetY;
 
-        // Grounded within suspension travel (-0.35m to +0.45m)
         if (diff <= 0.45) {
           s.position.y = THREE.MathUtils.lerp(s.position.y, targetY, 24.0 * dt);
           s.verticalVelocity = 0;
@@ -372,7 +389,6 @@ export function Car() {
             s.pitch = THREE.MathUtils.lerp(s.pitch, -targetPitch * 0.4, 10.0 * dt);
           }
         } else {
-          // Airborne: jumping or falling off a ledge/bridge
           s.isGrounded = false;
           s.verticalVelocity -= 22.0 * dt;
           s.position.y += s.verticalVelocity * dt;
@@ -383,7 +399,6 @@ export function Car() {
           }
         }
       } else {
-        // Fallback: apply gravity towards safety base floor
         if (s.position.y > 0.0) {
           s.isGrounded = false;
           s.verticalVelocity -= 22.0 * dt;
@@ -403,14 +418,17 @@ export function Car() {
       // Wall / Building collision
       if (Math.abs(s.speed) > 2) {
         m.wallOrigin.copy(s.position);
-        m.wallOrigin.y += 0.85; // Clears curbs, sidewalks, and road dividers!
+        m.wallOrigin.y += 0.85;
         m.checkDir.copy(m.forwardVec);
         if (s.speed < 0) m.checkDir.negate();
 
         m.wallRaycaster.set(m.wallOrigin, m.checkDir);
         m.wallRaycaster.far = 2.4;
 
-        const wallHits = m.wallRaycaster.intersectObjects(cityColliders, true);
+        m.wallHits.length = 0;
+        m.wallRaycaster.intersectObjects(cityColliders, false, m.wallHits);
+        const wallHits = m.wallHits;
+
         if (wallHits.length > 0 && wallHits[0].distance < 2.0) {
           const hitNorm = wallHits[0].normal;
           if (hitNorm && Math.abs(hitNorm.y) < 0.55) {
@@ -421,7 +439,6 @@ export function Car() {
               s.position.x += hitNorm.x * 0.35;
               s.position.z += hitNorm.z * 0.35;
             } else {
-              // Glancing scrape: smoothly slide along the wall
               soundManager.playCrash(Math.abs(s.speed) / 50);
               s.speed *= 0.8;
               s.position.x += hitNorm.x * 0.2;
@@ -473,13 +490,17 @@ export function Car() {
       carGroup.current.rotation.set(s.pitch, s.rotationY, 0, 'YXZ');
     }
 
-    // Sound Engine Update with Dynamic Per-Car Audio Profile
-    const activeCar = useGameStore.getState().cars.find((c) => c.id === useGameStore.getState().currentCarId);
-    soundManager.updateEngine(s.rpm, inputState.forward, speedKmH, activeCar?.category || '');
+    // Sound Engine Update
+    soundManager.updateEngine(s.rpm, inputState.forward, speedKmH);
     soundManager.updateDrift(s.isDrifting, s.driftIntensity);
     soundManager.updateNitro(s.isNitroActive);
 
-    // Update Store (Reads directly via getState / subscribe, avoids React render cycle)
+    // Update Store Telemetry in-place (Zero new Array allocations per frame)
+    const st = useGameStore.getState();
+    st.carPosition[0] = s.position.x;
+    st.carPosition[1] = s.position.y;
+    st.carPosition[2] = s.position.z;
+
     useGameStore.setState({
       speed: Math.round(speedKmH),
       rpm: Math.round(s.rpm),
@@ -488,7 +509,7 @@ export function Car() {
       nitro: Math.round(s.nitro),
       isNitroActive: s.isNitroActive,
       isDrifting: s.isDrifting,
-      carPosition: [s.position.x, s.position.y, s.position.z],
+      driftScore: s.driftScore,
       carRotation: s.rotationY
     });
   });

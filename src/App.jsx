@@ -28,19 +28,34 @@ export default function App() {
     const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     setIsTouchDevice(hasTouch);
 
-    // 4. Audio context auto-init on first click
+    // 4. Audio context auto-init on first click or touch
     const handleFirstClick = () => {
       soundManager.init();
       window.removeEventListener('click', handleFirstClick);
       window.removeEventListener('keydown', handleFirstClick);
+      window.removeEventListener('touchstart', handleFirstClick);
     };
 
     window.addEventListener('click', handleFirstClick);
     window.addEventListener('keydown', handleFirstClick);
+    window.addEventListener('touchstart', handleFirstClick, { passive: true });
+
+    // 5. Suspend audio and save CPU/battery when tab is hidden or phone screen is locked
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        soundManager.setEnabled(false);
+      } else {
+        const soundEnabled = useGameStore.getState().soundEnabled;
+        soundManager.setEnabled(soundEnabled);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('click', handleFirstClick);
       window.removeEventListener('keydown', handleFirstClick);
+      window.removeEventListener('touchstart', handleFirstClick);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchCars, syncCarsList]);
 

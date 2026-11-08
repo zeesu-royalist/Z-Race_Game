@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+import { DEVICE_TIER } from '../utils/deviceTier';
 
 // Extend THREE with three-mesh-bvh
 THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
@@ -18,10 +19,13 @@ export function CityMap() {
 
   useEffect(() => {
     cityColliders.length = 0; // Clear previous
+    const maxAnisotropy = DEVICE_TIER.isLowTier ? 1 : 4;
 
     scene.traverse((child) => {
       if (child.isMesh) {
-        child.castShadow = true;
+        // City meshes only RECEIVE shadows from the car.
+        // Disabling castShadow on static city meshes eliminates hundreds of costly shadow map draw calls!
+        child.castShadow = false;
         child.receiveShadow = true;
 
         // Freeze static transformations so Three.js does not re-compute matrices every frame
@@ -34,10 +38,10 @@ export function CityMap() {
           mats.forEach((mat) => {
             if (mat.map) {
               mat.map.colorSpace = THREE.SRGBColorSpace;
-              mat.map.anisotropy = 4; // High visual quality without memory penalty
+              mat.map.anisotropy = maxAnisotropy;
             }
             if (mat.normalMap) {
-              mat.normalMap.anisotropy = 4;
+              mat.normalMap.anisotropy = maxAnisotropy;
             }
             // Fix alpha sorting for cutouts
             if (mat.name && (mat.name.includes('alpha') || mat.name.includes('cutout'))) {
@@ -55,6 +59,9 @@ export function CityMap() {
                 maxLeafTris: 15
               });
             }
+            if (!child.geometry.boundingSphere) {
+              child.geometry.computeBoundingSphere();
+            }
             cityColliders.push(child);
           } catch (e) {
             console.warn('BVH computation skipped for mesh:', child.name, e);
@@ -68,6 +75,9 @@ export function CityMap() {
       try {
         if (!floorRef.current.geometry.boundsTree) {
           floorRef.current.geometry.computeBoundsTree({ maxLeafTris: 15 });
+        }
+        if (!floorRef.current.geometry.boundingSphere) {
+          floorRef.current.geometry.computeBoundingSphere();
         }
         cityColliders.push(floorRef.current);
       } catch (e) {

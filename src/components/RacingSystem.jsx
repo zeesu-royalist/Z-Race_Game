@@ -17,6 +17,10 @@ export const CIRCUIT_CHECKPOINTS = [
   { id: 7, pos: [-25.0, 1.2, -18.0], name: 'South Hairpin Apex' }
 ];
 
+// Shared geometry buffers across all 8 gates (Eliminates redundant GPU buffer allocations)
+const sharedOuterTorus = new THREE.TorusGeometry(4.2, 0.16, 8, 24);
+const sharedInnerTorus = new THREE.TorusGeometry(3.8, 0.06, 6, 20);
+
 export function RacingSystem() {
   const raceActive = useGameStore((s) => s.raceActive);
   const currentCheckpoint = useGameStore((s) => s.currentCheckpoint);
@@ -35,18 +39,18 @@ export function RacingSystem() {
 
     const dx = carPos[0] - target.pos[0];
     const dz = carPos[2] - target.pos[2];
-    const dist = Math.hypot(dx, dz);
+    const distSq = dx * dx + dz * dz;
 
-    // If car enters checkpoint gate (radius 8.5m)
-    if (dist < 8.5) {
+    // Radius 8.5m => distSq < 72.25 (avoids Math.hypot square root every frame)
+    if (distSq < 72.25) {
       soundManager.playCheckpoint();
       reachCheckpoint(currentCheckpoint);
 
       // If race just finished, launch confetti celebration!
       if (currentCheckpoint === CIRCUIT_CHECKPOINTS.length - 1) {
         confetti({
-          particleCount: 120,
-          spread: 80,
+          particleCount: 100,
+          spread: 75,
           origin: { y: 0.6 }
         });
       }
@@ -83,9 +87,8 @@ function CheckpointGate({ position, isNext, isPassed, gateNumber }) {
 
   return (
     <group position={position} scale={[scale, scale, scale]}>
-      {/* Outer Hologram Ring */}
-      <mesh rotation={[0, 0, 0]}>
-        <torusGeometry args={[4.2, 0.16, 12, 32]} />
+      {/* Outer Hologram Ring using shared geometry */}
+      <mesh geometry={sharedOuterTorus} rotation={[0, 0, 0]}>
         <meshStandardMaterial
           color={color}
           emissive={emissiveColor}
@@ -96,9 +99,8 @@ function CheckpointGate({ position, isNext, isPassed, gateNumber }) {
         />
       </mesh>
 
-      {/* Inner Rotating Laser Ring */}
-      <mesh rotation={[0, 0, Math.PI / 4]}>
-        <torusGeometry args={[3.8, 0.06, 8, 24]} />
+      {/* Inner Rotating Laser Ring using shared geometry */}
+      <mesh geometry={sharedInnerTorus} rotation={[0, 0, Math.PI / 4]}>
         <meshBasicMaterial
           color={isNext ? '#ffffff' : '#00aaff'}
           transparent
@@ -108,4 +110,3 @@ function CheckpointGate({ position, isNext, isPassed, gateNumber }) {
     </group>
   );
 }
-

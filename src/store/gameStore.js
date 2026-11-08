@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useGLTF } from '@react-three/drei';
 import { CAR_CATALOG, DEFAULT_CAR_ID } from '../config/cars';
 
 const defaultCar = CAR_CATALOG.find((c) => c.id === DEFAULT_CAR_ID) || CAR_CATALOG[0];
@@ -52,9 +53,11 @@ export const useGameStore = create((set, get) => ({
 
   // Actions
   selectCar: (carId, resetToSpawn = false) => {
-    const { cars } = get();
+    const { cars, currentCarId, carModelPath } = get();
+    if (carId === currentCarId) return;
     const car = cars.find((c) => c.id === carId);
     if (car) {
+      const oldModelPath = carModelPath;
       set({
         currentCarId: car.id,
         carModelPath: car.modelPath,
@@ -63,6 +66,14 @@ export const useGameStore = create((set, get) => ({
         speed: 0,
         rpm: 900
       });
+      // Purge old car from Drei cache so low RAM devices immediately release VRAM
+      if (oldModelPath && oldModelPath !== car.modelPath) {
+        try {
+          useGLTF.clear(oldModelPath);
+        } catch (e) {
+          // Graceful fallback
+        }
+      }
       if (resetToSpawn) {
         get().triggerReset();
       }
@@ -89,22 +100,23 @@ export const useGameStore = create((set, get) => ({
   },
 
   fetchCars: async () => {
-    try {
-      // 1. Try Dev API endpoint
-      const res = await fetch('/api/cars', { cache: 'no-cache' });
-      if (res.ok) {
-        const carList = await res.json();
-        if (Array.isArray(carList) && carList.length > 0) {
-          get().syncCarsList(carList);
-          return;
+    // In dev mode, use HMR API; in production, use static cars-manifest.json directly
+    if (import.meta.env.DEV) {
+      try {
+        const res = await fetch('/api/cars', { cache: 'no-cache' });
+        if (res.ok) {
+          const carList = await res.json();
+          if (Array.isArray(carList) && carList.length > 0) {
+            get().syncCarsList(carList);
+            return;
+          }
         }
+      } catch (e) {
+        // Fallback to manifest
       }
-    } catch (e) {
-      // Fallback
     }
 
     try {
-      // 2. Try static manifest
       const resManifest = await fetch('/cars-manifest.json', { cache: 'no-cache' });
       if (resManifest.ok) {
         const carList = await resManifest.json();
@@ -174,8 +186,9 @@ export const useGameStore = create((set, get) => ({
     }
   },
   updateLapTime: (delta) => {
-    if (get().raceActive) {
-      set((s) => ({ lapTime: s.lapTime + delta }));
+    const s = get();
+    if (s.raceActive) {
+      s.lapTime += delta;
     }
   }
 }));

@@ -2,16 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Z-Race — 3D City Racing Simulator</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="/assets/index-WOLufmvK.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DyBkHGgI.css">
+
+    <!-- Mobile Viewport & Theme Meta -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#06090e" />
+
+    <!-- Google Fonts Preconnect & Stylesheet -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Preload Critical City Model in Parallel with JS Bundle -->
+    <link rel="preload" as="fetch" href="/city-models/terrain_retextured.glb" crossorigin="anonymous" />
+    <script type="module" crossorigin src="/assets/index-Cm4_y6l1.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-XKyaHtl9.js">
+    <link rel="modulepreload" crossorigin href="/assets/react-vendor-Cyd8DrJR.js">
+    <link rel="modulepreload" crossorigin href="/assets/three-vendor-DUwR60Jx.js">
+    <link rel="modulepreload" crossorigin href="/assets/ui-vendor-BlcbtFbh.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-BbAJfzGI.css">
   </head>
   <body>
     <div id="root"></div>
   </body>
 </html>
-

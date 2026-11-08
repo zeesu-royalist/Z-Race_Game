@@ -5,26 +5,22 @@ import { useGameStore } from '../store/gameStore';
 import { inputState } from './Car';
 
 // 3 Dedicated Camera Angles:
-// 1st: Initial Close (jaisa abhi hai)
+// 1st: Initial Close
 // 2nd: Thoda Dur
 // 3rd: Thoda Uper Se Thoda Dur (High Angle)
 export function getCameraDefaults(mode) {
   if (mode === 'far') {
-    // 2nd: Thoda Dur
     return { dist: 6.8, height: 1.85, fov: 58, lookHeight: 0.95 };
   }
   if (mode === 'aerial') {
-    // 3rd: Thoda Uper Se Thoda Dur
     return { dist: 8.6, height: 3.4, fov: 60, lookHeight: 0.65 };
   }
-  // 1st: Initial Close
   return { dist: 4.7, height: 1.45, fov: 56, lookHeight: 0.85 };
 }
 
 export function CameraRig() {
+  // Only subscribe to cameraMode so React NEVER re-renders CameraRig during driving/racing
   const cameraMode = useGameStore((s) => s.cameraMode);
-  const isNitroActive = useGameStore((s) => s.isNitroActive);
-  const speed = useGameStore((s) => s.speed);
 
   const { camera, gl } = useThree();
 
@@ -40,10 +36,10 @@ export function CameraRig() {
   // Interactive Mouse / Touch Orbit & Zoom State
   const initialCfg = getCameraDefaults(cameraMode);
   const orbit = useRef({
-    yaw: 0,             // Horizontal rotation offset around car (radians)
-    pitch: 0,           // Vertical elevation offset (radians)
-    distance: initialCfg.dist,      // Current smoothed distance
-    targetDist: initialCfg.dist,    // Target distance (from wheel/pinch)
+    yaw: 0,
+    pitch: 0,
+    distance: initialCfg.dist,
+    targetDist: initialCfg.dist,
     isDragging: false,
     lastInteractionTime: 0,
     prevX: 0,
@@ -68,7 +64,6 @@ export function CameraRig() {
 
     // Pointer Down (Mouse click or touch start)
     const onPointerDown = (e) => {
-      // Ignore if clicking on UI overlay buttons
       if (e.target !== dom && !dom.contains(e.target)) return;
 
       orbit.current.activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -79,7 +74,6 @@ export function CameraRig() {
         orbit.current.prevY = e.clientY;
         orbit.current.lastInteractionTime = performance.now();
       } else if (orbit.current.activeTouches.size === 2) {
-        // Pinch zoom start
         const touches = Array.from(orbit.current.activeTouches.values());
         orbit.current.initialPinchDist = Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y);
         orbit.current.initialPinchTargetDist = orbit.current.targetDist;
@@ -100,20 +94,18 @@ export function CameraRig() {
         orbit.current.prevX = e.clientX;
         orbit.current.prevY = e.clientY;
 
-        // Yaw & Pitch Orbit Sensitivity (natural intuitive drag: right->right, up->tilt up)
         const yawSensitivity = 0.0055;
         const pitchSensitivity = 0.0045;
 
         orbit.current.yaw -= dx * yawSensitivity;
         orbit.current.pitch = THREE.MathUtils.clamp(
           orbit.current.pitch + dy * pitchSensitivity,
-          -0.45, // Min low-angle limit (just above ground)
-          0.95   // Max high-angle bird's eye view
+          -0.45,
+          0.95
         );
 
         orbit.current.lastInteractionTime = performance.now();
       } else if (orbit.current.activeTouches.size === 2) {
-        // Multi-touch pinch zoom
         const touches = Array.from(orbit.current.activeTouches.values());
         const currentPinchDist = Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y);
         if (orbit.current.initialPinchDist > 0) {
@@ -178,16 +170,15 @@ export function CameraRig() {
     };
   }, [gl, cameraMode]);
 
-  // Main 60-120 FPS Camera Dynamics Loop
+  // Main 60-120 FPS Camera Dynamics Loop (Zero React overhead)
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
     const m = math.current;
     const orb = orbit.current;
-    const { carPosition, carRotation } = useGameStore.getState();
+    const { carPosition, carRotation, speed, isNitroActive } = useGameStore.getState();
 
     m.carPosVec.set(carPosition[0], carPosition[1], carPosition[2]);
 
-    // Read active 3-angle camera profile
     const camCfg = getCameraDefaults(cameraMode);
     const defaultDist = camCfg.dist;
     const baseHeight = camCfg.height;
@@ -202,11 +193,8 @@ export function CameraRig() {
       inputState.forward || inputState.backward || inputState.left || inputState.right;
     const isDriving = speedKmH > 2.5 || isDrivingInput;
 
-    // Smoothly return camera directly behind car if driving and user is not actively dragging
     if (!orb.isDragging && isDriving && timeSinceInteract > 0.3) {
-      // Shortest angular difference to 0 (avoids 360 wrap-around spins)
       const yawDiff = Math.atan2(Math.sin(orb.yaw), Math.cos(orb.yaw));
-      // Re-center faster as vehicle speed increases
       const returnSpeed = 3.2 + Math.min(speedKmH / 30, 4.5);
 
       orb.yaw = THREE.MathUtils.lerp(yawDiff, 0, returnSpeed * dt);
@@ -218,14 +206,13 @@ export function CameraRig() {
     orb.distance = THREE.MathUtils.lerp(orb.distance, orb.targetDist, 10.0 * dt);
 
     // Compute 3D Orbit Coordinates Around the Car
-    // carRotation: forward is along +Z when rotation = 0; rear is +Math.PI
     const camAzimuth = carRotation + Math.PI + orb.yaw;
     const camElevation = orb.pitch;
 
     const horizDist = orb.distance * Math.cos(camElevation);
     const vertDist = orb.distance * Math.sin(camElevation);
 
-    // Camera 3D Position with Ground Clip Protection (always above ground)
+    // Camera 3D Position with Ground Clip Protection
     const desiredY = m.carPosVec.y + baseHeight + vertDist;
     const clampedY = Math.max(m.carPosVec.y + 0.35, desiredY);
 
@@ -242,16 +229,15 @@ export function CameraRig() {
       m.carPosVec.z + 0.3 * Math.cos(carRotation)
     );
 
-    // Dynamic FOV kick on high speed & boost (subtle so car stays close and prominent!)
+    // Dynamic FOV kick on high speed & boost
     const speedRatio = Math.min(1.0, speed / 240);
     const targetFov = baseFov + speedRatio * 3.5 + (isNitroActive ? 2.5 : 0);
     camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, 6.0 * dt);
     camera.updateProjectionMatrix();
 
-    // High-speed camera follow tightness (eliminates rubber-band camera lag/stretch!)
-    // At higher speeds, tracking tightens so car never pulls away from camera
+    // High-speed camera follow tightness
     const speedFactor = Math.min(1.0, speedKmH / 160);
-    const baseCamLerp = 14.0 + speedFactor * 14.0; // 14.0 at stop -> 28.0 at top speed!
+    const baseCamLerp = 14.0 + speedFactor * 14.0;
     const baseLookLerp = 18.0 + speedFactor * 12.0;
 
     const camLerpSpeed = orb.isDragging ? 22.0 : baseCamLerp;
