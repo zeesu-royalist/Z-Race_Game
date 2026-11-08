@@ -379,10 +379,18 @@ export function Car() {
     const raceFinished = useGameStore.getState().raceFinished;
 
     if (raceActive || raceFinished) {
+      const px = s.position.x;
+      const pz = s.position.z;
+      const pRot = s.rotationY;
+      const pSin = m.forwardVec.x;
+      const pCos = m.forwardVec.z;
+      const pVx = pSin * s.speed;
+      const pVz = pCos * s.speed;
+
       for (let i = 0; i < rivalCarsSim.length; i++) {
         const rival = rivalCarsSim[i];
         const col = checkCarCollision(
-          s.position.x, s.position.z, s.rotationY, PLAYER_HALF_LENGTH, PLAYER_HALF_WIDTH,
+          px, pz, pRot, PLAYER_HALF_LENGTH, PLAYER_HALF_WIDTH,
           rival.x, rival.z, rival.rotY, RIVAL_HALF_LENGTH, RIVAL_HALF_WIDTH
         );
 
@@ -396,10 +404,10 @@ export function Car() {
           rival.z -= col.normalZ * col.depth * 0.45;
 
           // 2. Relative velocity along collision normal
-          const pVx = Math.sin(s.rotationY) * s.speed;
-          const pVz = Math.cos(s.rotationY) * s.speed;
-          const rVx = Math.sin(rival.rotY) * rival.speed;
-          const rVz = Math.cos(rival.rotY) * rival.speed;
+          const rSin = Math.sin(rival.rotY);
+          const rCos = Math.cos(rival.rotY);
+          const rVx = rSin * rival.speed;
+          const rVz = rCos * rival.speed;
 
           const relVx = pVx - rVx;
           const relVz = pVz - rVz;
@@ -419,8 +427,6 @@ export function Car() {
             const impulse = -(1 + restitution) * normalVel * 0.5;
 
             // Player car orientation axes
-            const pSin = Math.sin(s.rotationY);
-            const pCos = Math.cos(s.rotationY);
             const pForwardDot = col.normalX * pSin + col.normalZ * pCos;
             const pRightDot = col.normalX * pCos - col.normalZ * pSin;
 
@@ -441,8 +447,6 @@ export function Car() {
             s.speed *= 0.985;
 
             // Rival competitor vehicle response
-            const rSin = Math.sin(rival.rotY);
-            const rCos = Math.cos(rival.rotY);
             const rForwardDot = (-col.normalX) * rSin + (-col.normalZ) * rCos;
             const rRightDot = (-col.normalX) * rCos - (-col.normalZ) * rSin;
 
