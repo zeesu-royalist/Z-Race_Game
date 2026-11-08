@@ -24,40 +24,47 @@ export const inputState = {
   nitro: false
 };
 
-// Spawn location: Dead Center of the Wide Boulevard (x: -3.0, y: 0.3, z: 10.0), facing +Z straight down the highway
+const KEY_MAP = {
+  KeyW: 'forward', ArrowUp: 'forward',
+  KeyS: 'backward', ArrowDown: 'backward',
+  KeyA: 'left', ArrowLeft: 'left',
+  KeyD: 'right', ArrowRight: 'right',
+  Space: 'handbrake',
+  ShiftLeft: 'nitro', ShiftRight: 'nitro'
+};
+
+const ACTION_KEYS = {
+  KeyR: () => useGameStore.getState().triggerReset(),
+  KeyC: () => useGameStore.getState().cycleCameraMode(),
+  KeyL: () => useGameStore.getState().toggleHeadlights(),
+  KeyM: () => useGameStore.getState().toggleSound(),
+  KeyT: () => useGameStore.getState().cycleTimeOfDay()
+};
+
+const GEAR_MINS = [0, 0, 45, 85, 125, 165, 205];
 const SPAWN_POS = new THREE.Vector3(-3.0, 0.3, 10.0);
 const SPAWN_ROT_Y = 0;
 
 export function Car() {
   const carGroup = useRef();
 
-  // Zustand state hooks (event-driven)
   const resetSignal = useGameStore((s) => s.resetSignal);
   const teleportSignal = useGameStore((s) => s.teleportSignal);
   const currentCarId = useGameStore((s) => s.currentCarId);
   const headlights = useGameStore((s) => s.headlights);
   const soundEnabled = useGameStore((s) => s.soundEnabled);
 
-  // Cached active car profile & tuning to eliminate per-frame object lookups
   const activeCarCategoryRef = useRef('jdm_turbo');
-  const tuningRef = useRef({
-    maxSpeed: 64,
-    accelRate: 19,
-    gripFactor: 0.9,
-    turnMultiplier: 1.0
-  });
-
-  // Crash sound debouncer
+  const tuningRef = useRef({ maxSpeed: 64, accelRate: 19, gripFactor: 0.9, turnMultiplier: 1.0 });
   const lastCrashSoundTime = useRef(0);
 
-  // Vehicle dynamics physics state
   const state = useRef({
     position: SPAWN_POS.clone(),
     rotationY: SPAWN_ROT_Y,
     pitch: 0,
     roll: 0,
-    speed: 0, // m/s
-    steerAngle: 0, // radians
+    speed: 0,
+    steerAngle: 0,
     wheelRotation: 0,
     angularVelocity: 0,
     verticalVelocity: 0,
@@ -72,7 +79,6 @@ export function Car() {
     isNitroActive: false
   });
 
-  // Reusable vectors & raycasters to eliminate GC memory thrashing
   const math = useRef({
     raycaster: new THREE.Raycaster(),
     downVec: new THREE.Vector3(0, -1, 0),
@@ -92,80 +98,18 @@ export function Car() {
     const onKeyDown = (e) => {
       soundManager.init();
       soundManager.resume();
-
-      switch (e.code) {
-        case 'KeyW':
-        case 'ArrowUp':
-          inputState.forward = true;
-          break;
-        case 'KeyS':
-        case 'ArrowDown':
-          inputState.backward = true;
-          break;
-        case 'KeyA':
-        case 'ArrowLeft':
-          inputState.left = true;
-          break;
-        case 'KeyD':
-        case 'ArrowRight':
-          inputState.right = true;
-          break;
-        case 'Space':
-          inputState.handbrake = true;
-          e.preventDefault();
-          break;
-        case 'ShiftLeft':
-        case 'ShiftRight':
-          inputState.nitro = true;
-          break;
-        case 'KeyR':
-          useGameStore.getState().triggerReset();
-          break;
-        case 'KeyC':
-          useGameStore.getState().cycleCameraMode();
-          break;
-        case 'KeyL':
-          useGameStore.getState().toggleHeadlights();
-          break;
-        case 'KeyM':
-          useGameStore.getState().toggleSound();
-          break;
-        case 'KeyT':
-          useGameStore.getState().cycleTimeOfDay();
-          break;
-        default:
-          break;
+      const mapped = KEY_MAP[e.code];
+      if (mapped) {
+        inputState[mapped] = true;
+        if (e.code === 'Space') e.preventDefault();
+      } else if (ACTION_KEYS[e.code]) {
+        ACTION_KEYS[e.code]();
       }
     };
 
     const onKeyUp = (e) => {
-      switch (e.code) {
-        case 'KeyW':
-        case 'ArrowUp':
-          inputState.forward = false;
-          break;
-        case 'KeyS':
-        case 'ArrowDown':
-          inputState.backward = false;
-          break;
-        case 'KeyA':
-        case 'ArrowLeft':
-          inputState.left = false;
-          break;
-        case 'KeyD':
-        case 'ArrowRight':
-          inputState.right = false;
-          break;
-        case 'Space':
-          inputState.handbrake = false;
-          break;
-        case 'ShiftLeft':
-          case 'ShiftRight':
-          inputState.nitro = false;
-          break;
-        default:
-          break;
-      }
+      const mapped = KEY_MAP[e.code];
+      if (mapped) inputState[mapped] = false;
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -176,20 +120,14 @@ export function Car() {
     };
   }, []);
 
-  // Handle Car Reset Signal (R key or Reset button)
+  // Handle Car Reset Signal
   useEffect(() => {
     if (resetSignal > 0) {
       const s = state.current;
       s.position.copy(SPAWN_POS);
       s.rotationY = SPAWN_ROT_Y;
-      s.pitch = 0;
-      s.roll = 0;
-      s.speed = 0;
-      s.steerAngle = 0;
-      s.angularVelocity = 0;
-      s.verticalVelocity = 0;
+      s.pitch = s.roll = s.speed = s.steerAngle = s.angularVelocity = s.verticalVelocity = s.driftScore = 0;
       s.isDrifting = false;
-      s.driftScore = 0;
       s.currentGear = 1;
       s.rpm = 900;
       if (carGroup.current) {
@@ -212,12 +150,7 @@ export function Car() {
         const s = state.current;
         s.position.set(target.pos[0], target.pos[1], target.pos[2]);
         s.rotationY = target.rotY;
-        s.speed = 0;
-        s.verticalVelocity = 0;
-        s.angularVelocity = 0;
-        s.steerAngle = 0;
-        s.pitch = 0;
-        s.roll = 0;
+        s.pitch = s.roll = s.speed = s.steerAngle = s.angularVelocity = s.verticalVelocity = 0;
         s.isGrounded = true;
         if (carGroup.current) {
           carGroup.current.position.copy(s.position);
@@ -227,34 +160,25 @@ export function Car() {
     }
   }, [teleportSignal]);
 
-  // Cache tuning and sound profile once when car changes (Zero per-frame array searches)
+  // Cache tuning and sound profile once when car changes
   useEffect(() => {
     const s = state.current;
-    s.speed = 0;
-    s.angularVelocity = 0;
-    s.steerAngle = 0;
-    s.verticalVelocity = 0;
-
+    s.speed = s.angularVelocity = s.steerAngle = s.verticalVelocity = 0;
     const car = useGameStore.getState().cars.find((c) => c.id === currentCarId);
     if (car) {
       activeCarCategoryRef.current = car.category || '';
-      tuningRef.current = car.tuning || {
-        maxSpeed: 64,
-        accelRate: 19,
-        gripFactor: 0.9,
-        turnMultiplier: 1.0
-      };
+      tuningRef.current = car.tuning || { maxSpeed: 64, accelRate: 19, gripFactor: 0.9, turnMultiplier: 1.0 };
       soundManager.setProfile(car.category || '');
     }
   }, [currentCarId]);
 
   // Highly Optimized 60-120 FPS Vehicle Physics Loop
   useFrame((_, delta) => {
-    const dt = Math.min(delta, 0.05); // Clamp dt to prevent tunneling
+    const dt = Math.min(delta, 0.05);
     const s = state.current;
     const m = math.current;
 
-    // --- 1. NITRO BOOST LOGIC ---
+    // 1. NITRO BOOST LOGIC
     let nitroMultiplier = 1.0;
     if (inputState.nitro && s.nitro > 0 && inputState.forward) {
       nitroMultiplier = 1.65;
@@ -262,12 +186,10 @@ export function Car() {
       s.nitro = Math.max(0, s.nitro - dt * 25);
     } else {
       s.isNitroActive = false;
-      if (s.nitro < 100) {
-        s.nitro = Math.min(100, s.nitro + dt * 6);
-      }
+      if (s.nitro < 100) s.nitro = Math.min(100, s.nitro + dt * 6);
     }
 
-    // --- 2. STEERING DYNAMICS (Speed-sensitive) ---
+    // 2. STEERING DYNAMICS (Speed-sensitive)
     const speedKmH = Math.abs(s.speed * 3.6);
     const speedFactor = Math.max(0.28, 1.0 - (speedKmH / 220) * 0.72);
     const maxSteer = 0.58 * speedFactor;
@@ -281,10 +203,7 @@ export function Car() {
       s.steerAngle = THREE.MathUtils.lerp(s.steerAngle, 0, 8.5 * dt);
     }
 
-    // Read cached active car tuning parameters
     const tuning = tuningRef.current;
-
-    // --- 3. ACCELERATION & BRAKING ---
     const raceCountdown = useGameStore.getState().raceCountdown;
     const isLockedByCountdown = raceCountdown !== null && raceCountdown > 0;
 
@@ -296,14 +215,11 @@ export function Car() {
 
     s.isBraking = false;
 
+    // 3. ACCELERATION & BRAKING
     if (isLockedByCountdown) {
       s.speed = 0;
       s.steerAngle = 0;
-      if (inputState.forward) {
-        s.rpm = Math.min(6200, s.rpm + 5000 * dt);
-      } else {
-        s.rpm = Math.max(900, s.rpm - 3500 * dt);
-      }
+      s.rpm = inputState.forward ? Math.min(6200, s.rpm + 5000 * dt) : Math.max(900, s.rpm - 3500 * dt);
     } else if (inputState.forward) {
       if (s.speed < 0) {
         s.speed += brakeRate * dt;
@@ -319,14 +235,10 @@ export function Car() {
         s.speed = Math.max(maxReverseSpeed, s.speed - accelRate * 0.65 * dt);
       }
     } else {
-      if (s.speed > 0) {
-        s.speed = Math.max(0, s.speed - naturalFriction * dt);
-      } else if (s.speed < 0) {
-        s.speed = Math.min(0, s.speed + naturalFriction * dt);
-      }
+      if (s.speed > 0) s.speed = Math.max(0, s.speed - naturalFriction * dt);
+      else if (s.speed < 0) s.speed = Math.min(0, s.speed + naturalFriction * dt);
     }
 
-    // Handbrake drift physics
     let gripFactor = 1.0;
     if (inputState.handbrake) {
       gripFactor = 0.28;
@@ -334,34 +246,24 @@ export function Car() {
       s.isBraking = true;
     }
 
-    // --- 4. YAW ROTATION & DRIFT ---
-    const isMovingBackward = s.speed < -0.5;
-    const directionSign = isMovingBackward ? -1 : 1;
-
+    // 4. YAW ROTATION & DRIFT
+    const directionSign = s.speed < -0.5 ? -1 : 1;
     let turnRate = 0;
     if (Math.abs(s.speed) > 0.2) {
       turnRate = s.steerAngle * (Math.abs(s.speed) / 5.5) * directionSign * (tuning.turnMultiplier || 1.0);
-      if (inputState.handbrake && Math.abs(s.speed) > 5) {
-        turnRate *= 1.85;
-      }
+      if (inputState.handbrake && Math.abs(s.speed) > 5) turnRate *= 1.85;
     }
 
     s.angularVelocity = THREE.MathUtils.lerp(s.angularVelocity, turnRate, 9.5 * dt);
     s.rotationY += s.angularVelocity * dt;
 
-    // Drift Detection
     const turningSharp = Math.abs(s.steerAngle) > 0.18;
     const fastEnough = speedKmH > 35;
-    const driftTriggered = (inputState.handbrake && fastEnough) || (turningSharp && speedKmH > 65);
-
-    s.isDrifting = driftTriggered && s.isGrounded;
+    s.isDrifting = ((inputState.handbrake && fastEnough) || (turningSharp && speedKmH > 65)) && s.isGrounded;
     s.driftIntensity = s.isDrifting ? Math.min(1.0, (speedKmH / 100) * (inputState.handbrake ? 1.4 : 0.8)) : 0;
+    if (s.isDrifting) s.driftScore += Math.round(s.driftIntensity * 10);
 
-    if (s.isDrifting) {
-      s.driftScore += Math.round(s.driftIntensity * 10);
-    }
-
-    // --- 5. POSITION DISPLACEMENT (Zero GC) ---
+    // 5. POSITION DISPLACEMENT (Zero GC)
     m.forwardVec.set(Math.sin(s.rotationY), 0, Math.cos(s.rotationY)).normalize();
     m.rightVec.set(m.forwardVec.z, 0, -m.forwardVec.x);
 
@@ -370,15 +272,13 @@ export function Car() {
     s.position.z += m.forwardVec.z * forwardStep;
 
     if (s.isDrifting) {
-      const slipAmount = (1.0 - gripFactor) * s.angularVelocity * 0.4 * dt * s.speed;
-      s.position.x += m.rightVec.x * slipAmount;
-      s.position.z += m.rightVec.z * slipAmount;
+      const slip = (1.0 - gripFactor) * s.angularVelocity * 0.4 * dt * s.speed;
+      s.position.x += m.rightVec.x * slip;
+      s.position.z += m.rightVec.z * slip;
     }
 
-    // --- 5.1 CAR-TO-CAR RACING COLLISION (Player vs 6 Rival SLS GT3 Cars) ---
-    const raceActive = useGameStore.getState().raceActive;
-    const raceFinished = useGameStore.getState().raceFinished;
-
+    // 5.1 CAR-TO-CAR RACING COLLISION (Player vs 6 Rival Cars)
+    const { raceActive, raceFinished } = useGameStore.getState();
     if (raceActive || raceFinished) {
       const px = s.position.x;
       const pz = s.position.z;
@@ -396,76 +296,53 @@ export function Car() {
         );
 
         if (col) {
-          // 1. Smooth positional anti-penetration along continuous capsule normal
           s.position.x += col.normalX * col.depth * 0.55;
           s.position.z += col.normalZ * col.depth * 0.55;
-          rival.pushX = THREE.MathUtils.clamp(rival.pushX - col.normalX * col.depth * 0.45, -1.6, 1.6);
-          rival.pushZ = THREE.MathUtils.clamp(rival.pushZ - col.normalZ * col.depth * 0.45, -1.6, 1.6);
-          rival.x -= col.normalX * col.depth * 0.45;
-          rival.z -= col.normalZ * col.depth * 0.45;
+          rival.pushX = THREE.MathUtils.clamp(rival.pushX - col.normalX * col.depth * 0.45, -1.5, 1.5);
+          rival.pushZ = THREE.MathUtils.clamp(rival.pushZ - col.normalZ * col.depth * 0.45, -1.5, 1.5);
 
-          // 2. Relative velocity along collision normal
           const rSin = Math.sin(rival.rotY);
           const rCos = Math.cos(rival.rotY);
-          const rVx = rSin * rival.speed;
-          const rVz = rCos * rival.speed;
-
-          const relVx = pVx - rVx;
-          const relVz = pVz - rVz;
+          const relVx = pVx - rSin * rival.speed;
+          const relVz = pVz - rCos * rival.speed;
           const normalVel = relVx * col.normalX + relVz * col.normalZ;
 
-          // 3. Audio crash feedback (debounced to avoid buzz, never throws)
           const now = performance.now() * 0.001;
           if (now - lastCrashSoundTime.current > 0.16 && normalVel < -1.0) {
-            const impactForce = Math.min(2.0, Math.abs(normalVel) / 8.0 + 0.35);
-            soundManager.playCrash(impactForce);
+            soundManager.playCrash(Math.min(2.0, Math.abs(normalVel) / 8.0 + 0.35));
             lastCrashSoundTime.current = now;
           }
 
           if (normalVel < 0) {
-            // Semi-elastic collision impulse (Newtonian conservation of momentum)
-            const restitution = 0.35;
-            const impulse = -(1 + restitution) * normalVel * 0.5;
-
-            // Player car orientation axes
+            const impulse = -1.35 * normalVel * 0.5;
             const pForwardDot = col.normalX * pSin + col.normalZ * pCos;
             const pRightDot = col.normalX * pCos - col.normalZ * pSin;
 
-            // Longitudinal speed adjustment
-            // Rear-ending competitor slows player down; being rear-ended gives player a boost
-            const deltaPlayerSpeed = impulse * pForwardDot;
-            s.speed = Math.max(0, s.speed + deltaPlayerSpeed);
-
-            // Off-center contact torque / lateral steering kick
+            s.speed = Math.max(0, s.speed + impulse * pForwardDot);
             const rx = col.contactX - s.position.x;
             const rz = col.contactZ - s.position.z;
-            const leverArmLongitudinal = rx * pSin + rz * pCos;
-            const lateralImpulse = impulse * pRightDot;
-            const torque = leverArmLongitudinal * lateralImpulse;
+            const torque = (rx * pSin + rz * pCos) * (impulse * pRightDot);
             s.angularVelocity += THREE.MathUtils.clamp(torque * 0.10, -2.2, 2.2);
-
-            // Contact friction damping
             s.speed *= 0.985;
 
-            // Rival competitor vehicle response
             const rForwardDot = (-col.normalX) * rSin + (-col.normalZ) * rCos;
             const rRightDot = (-col.normalX) * rCos - (-col.normalZ) * rSin;
-
-            rival.speed = THREE.MathUtils.clamp(rival.speed + impulse * rForwardDot, 12, rival.topSpeed + 10);
+            const rivalMax = (rival.topSpeed || 58) + 10;
+            const targetSpd = rival.speed + impulse * rForwardDot;
+            rival.speed = Number.isFinite(targetSpd) ? THREE.MathUtils.clamp(targetSpd, 12, rivalMax) : 30;
             rival.targetLaneOffset = THREE.MathUtils.clamp(rival.laneOffset + rRightDot * 0.45, -1.8, 1.8);
           }
         }
       }
     }
 
-    // --- 6. BVH SUSPENSION & MULTI-TIER ROAD/BRIDGE RAYCAST (Zero Array Allocations) ---
+    // 6. BVH SUSPENSION & ROAD RAYCAST (Zero Heap Allocation)
     if (cityColliders.length > 0) {
       m.rayOrigin.copy(s.position);
       m.rayOrigin.y += 0.45;
       m.raycaster.set(m.rayOrigin, m.downVec);
       m.raycaster.far = 25.0;
 
-      // Passing m.groundHits and recursive=false eliminates per-frame heap allocations & recursive tree traversals
       m.groundHits.length = 0;
       m.raycaster.intersectObjects(cityColliders, false, m.groundHits);
       const groundHits = m.groundHits;
@@ -480,15 +357,11 @@ export function Car() {
       }
 
       if (validHit) {
-        const groundHeight = validHit.point.y;
-        const targetY = groundHeight + 0.02;
-        const diff = s.position.y - targetY;
-
-        if (diff <= 0.45) {
+        const targetY = validHit.point.y + 0.02;
+        if (s.position.y - targetY <= 0.45) {
           s.position.y = THREE.MathUtils.lerp(s.position.y, targetY, 24.0 * dt);
           s.verticalVelocity = 0;
           s.isGrounded = true;
-
           if (validHit.normal) {
             m.normalVec.copy(validHit.normal);
             const targetPitch = m.normalVec.z * Math.cos(s.rotationY) + m.normalVec.x * Math.sin(s.rotationY);
@@ -509,12 +382,8 @@ export function Car() {
           s.isGrounded = false;
           s.verticalVelocity -= 22.0 * dt;
           s.position.y = Math.max(0.0, s.position.y + s.verticalVelocity * dt);
-          if (s.position.y <= 0.0) {
-            s.position.y = 0.0;
-            s.verticalVelocity = 0;
-            s.isGrounded = true;
-          }
-        } else {
+        }
+        if (s.position.y <= 0.0) {
           s.position.y = 0.0;
           s.verticalVelocity = 0;
           s.isGrounded = true;
@@ -530,7 +399,6 @@ export function Car() {
 
         m.wallRaycaster.set(m.wallOrigin, m.checkDir);
         m.wallRaycaster.far = 2.4;
-
         m.wallHits.length = 0;
         m.wallRaycaster.intersectObjects(cityColliders, false, m.wallHits);
         const wallHits = m.wallHits;
@@ -555,15 +423,14 @@ export function Car() {
       }
     }
 
-    // Completely unlocked open-world city boundary (1600m x 1600m free-roam buffer)
+    // Unlocked open-world city boundaries
     if (s.position.x < -800) { s.position.x = -795; s.speed = 0; }
     if (s.position.x > 500) { s.position.x = 495; s.speed = 0; }
     if (s.position.z < -900) { s.position.z = -895; s.speed = 0; }
     if (s.position.z > 400) { s.position.z = 395; s.speed = 0; }
 
     // Wheel rotation
-    const wheelCircumference = 2 * Math.PI * 0.36;
-    s.wheelRotation += (s.speed * dt / wheelCircumference) * Math.PI * 2;
+    s.wheelRotation += (s.speed * dt / (2 * Math.PI * 0.36)) * Math.PI * 2;
 
     // Automatic Gears & RPM
     let gear = 1;
@@ -583,7 +450,7 @@ export function Car() {
     if (gear === 'R') {
       rpm = 900 + (Math.abs(speedKmH) / 50) * 5500;
     } else {
-      const gearMin = gear === 1 ? 0 : [0, 0, 45, 85, 125, 165, 205][gear];
+      const gearMin = gear === 1 ? 0 : GEAR_MINS[gear];
       const normGearSpeed = Math.max(0, Math.min(1, (speedKmH - gearMin) / (gearMaxSpeed - gearMin)));
       rpm = 900 + normGearSpeed * 6800 + (inputState.forward ? 300 : 0);
     }
@@ -604,23 +471,20 @@ export function Car() {
     soundManager.updateDrift(s.isDrifting, s.driftIntensity);
     soundManager.updateNitro(s.isNitroActive);
 
-    // Update Store Telemetry in-place (Zero new Array allocations per frame)
+    // Update Store Telemetry directly (Zero GC heap churn)
     const st = useGameStore.getState();
     st.carPosition[0] = s.position.x;
     st.carPosition[1] = s.position.y;
     st.carPosition[2] = s.position.z;
-
-    useGameStore.setState({
-      speed: Math.round(speedKmH),
-      rpm: Math.round(s.rpm),
-      gear: String(s.currentGear),
-      steerAngle: s.steerAngle,
-      nitro: Math.round(s.nitro),
-      isNitroActive: s.isNitroActive,
-      isDrifting: s.isDrifting,
-      driftScore: s.driftScore,
-      carRotation: s.rotationY
-    });
+    st.speed = Math.round(speedKmH);
+    st.rpm = Math.round(s.rpm);
+    st.gear = String(s.currentGear);
+    st.steerAngle = s.steerAngle;
+    st.nitro = Math.round(s.nitro);
+    st.isNitroActive = s.isNitroActive;
+    st.isDrifting = s.isDrifting;
+    st.driftScore = s.driftScore;
+    st.carRotation = s.rotationY;
   });
 
   return (

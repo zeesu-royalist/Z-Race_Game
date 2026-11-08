@@ -5,7 +5,7 @@ import { soundManager } from '../utils/AudioSystem';
 
 let countdownTimers = [];
 const clearCountdownTimers = () => {
-  countdownTimers.forEach(t => clearTimeout(t));
+  countdownTimers.forEach(clearTimeout);
   countdownTimers = [];
 };
 
@@ -31,17 +31,17 @@ export const useGameStore = create((set, get) => ({
   isNitroActive: false,
   headlights: true,
   carPosition: [-3.0, 0.3, 10.0],
-  carRotation: 0, // Facing boulevard +Z
+  carRotation: 0,
 
   // Game Settings & Camera (3 Dedicated Angles: Close, Far, Aerial)
   cameraMode: 'close',
   timeOfDay: 'sunset',
   soundEnabled: true,
-  
+
   // Racing & Checkpoints
   gameMode: 'freeroam',
   raceActive: false,
-  raceCountdown: null, // null | 3 | 2 | 1 | 0 ('GO!')
+  raceCountdown: null,
   racePosition: 4,
   totalRacers: 7,
   lapTime: 0,
@@ -50,56 +50,42 @@ export const useGameStore = create((set, get) => ({
   totalCheckpoints: 16,
   raceFinished: false,
 
-  // Reset Signal
+  // Reset & Teleport Signals
   resetSignal: 0,
-
-  // Fast Travel & District Teleport
   teleportSignal: 0,
   teleportTarget: null,
+
   teleportTo: (pos, rotY = 0) => set((s) => ({
     teleportSignal: s.teleportSignal + 1,
     teleportTarget: { pos, rotY }
   })),
 
-  // Actions
   selectCar: (carId, resetToSpawn = false) => {
     const { cars, currentCarId, carModelPath } = get();
     if (carId === currentCarId) return;
     const car = cars.find((c) => c.id === carId);
-    if (car) {
-      const oldModelPath = carModelPath;
-      set({
-        currentCarId: car.id,
-        carModelPath: car.modelPath,
-        carName: car.name,
-        carTuning: car.tuning || defaultCar.tuning,
-        speed: 0,
-        rpm: 900
-      });
-      // Purge old car from Drei cache so low RAM devices immediately release VRAM
-      if (oldModelPath && oldModelPath !== car.modelPath) {
-        try {
-          useGLTF.clear(oldModelPath);
-        } catch (e) {
-          // Graceful fallback
-        }
-      }
-      if (resetToSpawn) {
-        get().triggerReset();
-      }
+    if (!car) return;
+
+    const oldModelPath = carModelPath;
+    set({
+      currentCarId: car.id,
+      carModelPath: car.modelPath,
+      carName: car.name,
+      carTuning: car.tuning || defaultCar.tuning,
+      speed: 0,
+      rpm: 900
+    });
+
+    if (oldModelPath && oldModelPath !== car.modelPath) {
+      try { useGLTF.clear(oldModelPath); } catch {}
     }
+    if (resetToSpawn) get().triggerReset();
   },
 
-  // Auto-scan / Sync cars from public/cars-models/
   syncCarsList: (newCarList) => {
     if (!Array.isArray(newCarList) || newCarList.length === 0) return;
     const { currentCarId } = get();
-
-    const currentExists = newCarList.some((c) => c.id === currentCarId);
-    const activeCar = currentExists
-      ? newCarList.find((c) => c.id === currentCarId)
-      : newCarList[0];
-
+    const activeCar = newCarList.find((c) => c.id === currentCarId) || newCarList[0];
     set({
       cars: newCarList,
       currentCarId: activeCar.id,
@@ -110,71 +96,40 @@ export const useGameStore = create((set, get) => ({
   },
 
   fetchCars: async () => {
-    // In dev mode, use HMR API; in production, use static cars-manifest.json directly
-    if (import.meta.env.DEV) {
-      try {
-        const res = await fetch('/api/cars', { cache: 'no-cache' });
-        if (res.ok) {
-          const carList = await res.json();
-          if (Array.isArray(carList) && carList.length > 0) {
-            get().syncCarsList(carList);
-            return;
-          }
-        }
-      } catch (e) {
-        // Fallback to manifest
-      }
-    }
-
     try {
-      const resManifest = await fetch('/cars-manifest.json', { cache: 'no-cache' });
-      if (resManifest.ok) {
-        const carList = await resManifest.json();
-        if (Array.isArray(carList) && carList.length > 0) {
-          get().syncCarsList(carList);
-        }
+      const url = import.meta.env.DEV ? '/api/cars' : '/cars-manifest.json';
+      let res = await fetch(url, { cache: 'no-cache' });
+      if (!res.ok && import.meta.env.DEV) {
+        res = await fetch('/cars-manifest.json', { cache: 'no-cache' });
       }
-    } catch (e) {
-      console.warn('Could not fetch cars manifest:', e);
-    }
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list) && list.length > 0) get().syncCarsList(list);
+      }
+    } catch {}
   },
 
   triggerReset: () => set((s) => ({ resetSignal: s.resetSignal + 1 })),
   setNitro: (nitro) => set({ nitro }),
   setNitroActive: (isNitroActive) => set({ isNitroActive }),
   toggleHeadlights: () => set((s) => ({ headlights: !s.headlights })),
-  setCameraMode: (mode) => set({ cameraMode: mode }),
+  setCameraMode: (cameraMode) => set({ cameraMode }),
   cycleCameraMode: () => {
-    // 3 Clean Camera Angles: 1st Initial Close, 2nd Far, 3rd Aerial (Thoda Uper Se Thoda Dur)
     const modes = ['close', 'far', 'aerial'];
-    const curIdx = modes.indexOf(get().cameraMode);
-    const nextIdx = (curIdx + 1) % modes.length;
-    set({ cameraMode: modes[nextIdx] });
+    set((s) => ({ cameraMode: modes[(modes.indexOf(s.cameraMode) + 1) % modes.length] }));
   },
-
   setTimeOfDay: (timeOfDay) => set({ timeOfDay }),
   cycleTimeOfDay: () => {
     const times = ['day', 'sunset', 'night'];
-    const curIdx = times.indexOf(get().timeOfDay);
-    const nextIdx = (curIdx + 1) % times.length;
-    set({ timeOfDay: times[nextIdx] });
+    set((s) => ({ timeOfDay: times[(times.indexOf(s.timeOfDay) + 1) % times.length] }));
   },
-
   toggleSound: () => set((s) => ({ soundEnabled: !s.soundEnabled })),
-  addDriftScore: (points) => set((s) => ({
-    driftScore: s.driftScore + points,
-    totalDriftScore: s.totalDriftScore + points
-  })),
+  addDriftScore: (pts) => set((s) => ({ driftScore: s.driftScore + pts, totalDriftScore: s.totalDriftScore + pts })),
+  setRacePosition: (racePosition) => set({ racePosition }),
 
-  setRacePosition: (pos) => set({ racePosition: pos }),
-
-  // Race Actions
   startRace: () => {
     clearCountdownTimers();
-
-    // Position player in grid slot P4: [-4.8, 0.3, 10.0] facing +Z
     get().teleportTo([-4.8, 0.3, 10.0], 0);
-
     set({
       gameMode: 'race',
       raceActive: true,
@@ -185,50 +140,30 @@ export const useGameStore = create((set, get) => ({
       raceFinished: false,
       speed: 0
     });
-
     soundManager.playCountdown(3);
 
-    const t2 = setTimeout(() => {
-      set({ raceCountdown: 2 });
-      soundManager.playCountdown(2);
-    }, 1000);
-
-    const t1 = setTimeout(() => {
-      set({ raceCountdown: 1 });
-      soundManager.playCountdown(1);
-    }, 2000);
-
-    const tGo = setTimeout(() => {
-      set({ raceCountdown: 0 });
-      soundManager.playCountdown(0);
-    }, 3000);
-
-    const tClear = setTimeout(() => {
-      set({ raceCountdown: null });
-    }, 4200);
-
-    countdownTimers.push(t2, t1, tGo, tClear);
+    [2, 1, 0, null].forEach((val, i) => {
+      const t = setTimeout(() => {
+        set({ raceCountdown: val });
+        if (val !== null) soundManager.playCountdown(val);
+      }, (i + 1) * 1000 + (val === null ? 200 : 0));
+      countdownTimers.push(t);
+    });
   },
 
   stopRace: () => {
     clearCountdownTimers();
-    set({
-      gameMode: 'freeroam',
-      raceActive: false,
-      raceCountdown: null,
-      raceFinished: false
-    });
+    set({ gameMode: 'freeroam', raceActive: false, raceCountdown: null, raceFinished: false });
   },
 
   reachCheckpoint: (checkpointIdx) => {
     const { currentCheckpoint, totalCheckpoints, lapTime, bestLapTime } = get();
     if (checkpointIdx === currentCheckpoint) {
       if (currentCheckpoint + 1 >= totalCheckpoints) {
-        const newBest = bestLapTime === null ? lapTime : Math.min(bestLapTime, lapTime);
         set({
           currentCheckpoint: totalCheckpoints,
           raceFinished: true,
-          bestLapTime: newBest,
+          bestLapTime: bestLapTime === null ? lapTime : Math.min(bestLapTime, lapTime),
           raceActive: false
         });
       } else {
@@ -248,4 +183,3 @@ export const useGameStore = create((set, get) => ({
 if (typeof window !== 'undefined') {
   window.useGameStore = useGameStore;
 }
-

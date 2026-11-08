@@ -17,22 +17,15 @@ export default function App() {
   const syncCarsList = useGameStore((s) => s.syncCarsList);
 
   useEffect(() => {
-    // 1. Initial car scanning from public/cars-models/
     fetchCars();
 
-    // 2. Real-time HMR watcher for dynamically dropped .glb files
     if (import.meta.hot) {
       import.meta.hot.on('cars-updated', (updatedCars) => {
-        console.log('[Z-Race] New cars detected in public/cars-models/!', updatedCars);
         syncCarsList(updatedCars);
       });
     }
 
-    // 3. Detect touch capability
-    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    setIsTouchDevice(hasTouch);
-
-    // 4. Audio context pre-init & instant resume on any user gesture (click, keypress, touch)
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
     soundManager.init();
 
     const handleUserInteraction = () => {
@@ -40,49 +33,32 @@ export default function App() {
       soundManager.resume();
     };
 
-    window.addEventListener('click', handleUserInteraction, { capture: true, passive: true });
-    window.addEventListener('pointerdown', handleUserInteraction, { capture: true, passive: true });
-    window.addEventListener('keydown', handleUserInteraction, { capture: true, passive: true });
-    window.addEventListener('touchstart', handleUserInteraction, { capture: true, passive: true });
+    const events = ['click', 'pointerdown', 'keydown', 'touchstart'];
+    events.forEach((evt) => window.addEventListener(evt, handleUserInteraction, { capture: true, passive: true }));
 
-    // 5. Suspend audio and save CPU/battery when tab is hidden or phone screen is locked
     const handleVisibilityChange = () => {
       if (document.hidden) {
         soundManager.setEnabled(false);
       } else {
         const soundEnabled = useGameStore.getState().soundEnabled;
         soundManager.setEnabled(soundEnabled);
-        if (soundEnabled) {
-          soundManager.resume();
-        }
+        if (soundEnabled) soundManager.resume();
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('click', handleUserInteraction);
-      window.removeEventListener('pointerdown', handleUserInteraction);
-      window.removeEventListener('keydown', handleUserInteraction);
-      window.removeEventListener('touchstart', handleUserInteraction);
+      events.forEach((evt) => window.removeEventListener(evt, handleUserInteraction));
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchCars, syncCarsList]);
 
   return (
     <div className="game-viewport">
-      {/* 3D WebGL Canvas */}
       <GameCanvas />
-
-      {/* Top Controls Overlay */}
       <ControlsOverlay />
-
-      {/* Mini-map Radar */}
       <MiniMap />
-
-      {/* Speedometer & Tachometer Cluster */}
       <SpeedometerHUD />
-
-      {/* Mobile / Touchscreen On-screen Controls */}
       {isTouchDevice && <TouchControls />}
     </div>
   );

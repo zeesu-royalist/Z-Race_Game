@@ -100,6 +100,46 @@
     }
   },
   {
+    "id": "alfa_romeo_t332_long_tail_1968__www-vecarz-com",
+    "fileName": "alfa_romeo_t332_long_tail_1968__www.vecarz.com.glb",
+    "name": "Alfa Romeo T332 Long Tail 1968 Www.Vecarz.Com",
+    "modelPath": "/cars-models/alfa_romeo_t332_long_tail_1968__www.vecarz.com.glb",
+    "brand": "Custom Garage",
+    "category": "Imported Racer",
+    "specs": {
+      "topSpeed": "350 KM/H",
+      "acceleration": "2.8 SEC",
+      "power": "720 BHP",
+      "handling": "CUSTOM AWD"
+    },
+    "tuning": {
+      "maxSpeed": 66,
+      "accelRate": 22,
+      "gripFactor": 0.9,
+      "turnMultiplier": 1.1
+    }
+  },
+  {
+    "id": "audi_r8_lms",
+    "fileName": "audi_r8_lms.glb",
+    "name": "Audi R8 Lms",
+    "modelPath": "/cars-models/audi_r8_lms.glb",
+    "brand": "Custom Garage",
+    "category": "Imported Racer",
+    "specs": {
+      "topSpeed": "350 KM/H",
+      "acceleration": "2.8 SEC",
+      "power": "720 BHP",
+      "handling": "CUSTOM AWD"
+    },
+    "tuning": {
+      "maxSpeed": 66,
+      "accelRate": 22,
+      "gripFactor": 0.9,
+      "turnMultiplier": 1.1
+    }
+  },
+  {
     "id": "bmw_m4_f82_razor_2014__www-vecarz-com",
     "fileName": "bmw_m4_f82_razor_2014__www.vecarz.com.glb",
     "name": "BMW M4 F82 Razor Edition",

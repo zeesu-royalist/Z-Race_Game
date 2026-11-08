@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import confetti from 'canvas-confetti';
@@ -6,10 +6,6 @@ import { useGameStore } from '../store/gameStore';
 import { soundManager } from '../utils/AudioSystem';
 
 // Checkpoints defining the Full-City Championship Circuit (2.05 km)
-// Spanning from South Grand Boulevard through Racing Tunnel, Central Expressway,
-// Mid-City Highway, Far West Coastal Avenue, North Metropolis Sweeper,
-// Super Highway Straight, Mid-City Avenue, Cross Boulevard, East Metro Avenue,
-// and East Metropolis Grand Terminus Finish Line Arch
 export const CIRCUIT_CHECKPOINTS = [
   { id: 0, pos: [-3.0, 1.2, 28.0], name: 'Start Line', rotY: 0 },
   { id: 1, pos: [-3.0, 1.2, 55.0], name: 'Boulevard Sprint', rotY: 0 },
@@ -29,7 +25,7 @@ export const CIRCUIT_CHECKPOINTS = [
   { id: 15, pos: [182.0, 1.2, -604.0], name: 'East Metro Terminus Finish Line Arch', rotY: 0.83 }
 ];
 
-// Shared geometry buffers across gates (Eliminates redundant GPU buffer allocations)
+// Shared geometry buffers across gates
 const sharedOuterTorus = new THREE.TorusGeometry(4.2, 0.16, 8, 24);
 const sharedInnerTorus = new THREE.TorusGeometry(3.8, 0.06, 6, 20);
 const sharedPillarGeo = new THREE.CylinderGeometry(0.2, 0.25, 6, 8);
@@ -42,10 +38,8 @@ export function RacingSystem() {
   const reachCheckpoint = useGameStore((s) => s.reachCheckpoint);
   const updateLapTime = useGameStore((s) => s.updateLapTime);
 
-  // Check collision with current checkpoint every frame
   useFrame((_, delta) => {
     if (!raceActive) return;
-
     updateLapTime(delta);
 
     const carPos = useGameStore.getState().carPosition;
@@ -54,60 +48,42 @@ export function RacingSystem() {
 
     const dx = carPos[0] - target.pos[0];
     const dz = carPos[2] - target.pos[2];
-    const distSq = dx * dx + dz * dz;
-
-    // Radius 9.5m => distSq < 90.25 (responsive checkpoint trigger at 200+ km/h)
-    if (distSq < 90.25) {
+    if (dx * dx + dz * dz < 90.25) {
       soundManager.playCheckpoint();
       reachCheckpoint(currentCheckpoint);
-
-      // If race just finished, launch confetti celebration!
       if (currentCheckpoint === CIRCUIT_CHECKPOINTS.length - 1) {
-        confetti({
-          particleCount: 120,
-          spread: 80,
-          origin: { y: 0.6 }
-        });
+        confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
       }
     }
   });
 
-  // Keep gates and celebratory finish arch visible while racing or when finished
   if (!raceActive && !raceFinished) return null;
 
   return (
     <group>
-      {CIRCUIT_CHECKPOINTS.map((cp, idx) => {
-        const isNext = idx === currentCheckpoint;
-        const isPassed = idx < currentCheckpoint;
-        const isFinish = idx === CIRCUIT_CHECKPOINTS.length - 1;
-
-        return (
-          <CheckpointGate
-            key={cp.id}
-            position={cp.pos}
-            rotY={cp.rotY || 0}
-            isNext={isNext}
-            isPassed={isPassed}
-            gateNumber={idx + 1}
-            isFinish={isFinish}
-          />
-        );
-      })}
+      {CIRCUIT_CHECKPOINTS.map((cp, idx) => (
+        <CheckpointGate
+          key={cp.id}
+          position={cp.pos}
+          rotY={cp.rotY || 0}
+          isNext={idx === currentCheckpoint}
+          isPassed={idx < currentCheckpoint}
+          isFinish={idx === CIRCUIT_CHECKPOINTS.length - 1}
+        />
+      ))}
     </group>
   );
 }
 
-// Glowing Holographic Gate & End Road Finish Line Arch
-function CheckpointGate({ position, rotY, isNext, isPassed, gateNumber, isFinish }) {
+function CheckpointGate({ position, rotY, isNext, isPassed, isFinish }) {
   const color = isFinish ? (isPassed ? '#22ff88' : '#ffd700') : isPassed ? '#22ff88' : isNext ? '#00f0ff' : '#225577';
   const emissiveColor = isFinish ? (isPassed ? '#00cc55' : '#ffaa00') : isPassed ? '#00cc55' : isNext ? '#00ffff' : '#113355';
   const scale = isFinish ? 1.25 : isNext ? 1.08 : 0.95;
 
   return (
     <group position={position} rotation={[0, rotY, 0]} scale={[scale, scale, scale]}>
-      {/* Outer Hologram Ring using shared geometry */}
-      <mesh geometry={sharedOuterTorus} rotation={[0, 0, 0]}>
+      {/* Outer Hologram Ring */}
+      <mesh geometry={sharedOuterTorus}>
         <meshStandardMaterial
           color={color}
           emissive={emissiveColor}
@@ -118,7 +94,7 @@ function CheckpointGate({ position, rotY, isNext, isPassed, gateNumber, isFinish
         />
       </mesh>
 
-      {/* Inner Rotating Laser Ring using shared geometry */}
+      {/* Inner Laser Ring */}
       <mesh geometry={sharedInnerTorus} rotation={[0, 0, Math.PI / 4]}>
         <meshBasicMaterial
           color={isFinish ? '#ffffff' : isNext ? '#ffffff' : '#00aaff'}
@@ -127,18 +103,15 @@ function CheckpointGate({ position, rotY, isNext, isPassed, gateNumber, isFinish
         />
       </mesh>
 
-      {/* End Road Finish Arch Structure */}
+      {/* Finish Arch Structure */}
       {isFinish && (
         <group position={[0, 0.8, 0]}>
-          {/* Left Pylon */}
           <mesh geometry={sharedPillarGeo} position={[-5.5, 1.2, 0]}>
             <meshStandardMaterial color="#ffd700" emissive="#ff8800" emissiveIntensity={1.5} metalness={0.8} roughness={0.2} />
           </mesh>
-          {/* Right Pylon */}
           <mesh geometry={sharedPillarGeo} position={[5.5, 1.2, 0]}>
             <meshStandardMaterial color="#ffd700" emissive="#ff8800" emissiveIntensity={1.5} metalness={0.8} roughness={0.2} />
           </mesh>
-          {/* Top Finish Banner */}
           <mesh geometry={sharedBannerGeo} position={[0, 4.4, 0]}>
             <meshStandardMaterial color="#ffd700" emissive="#ffaa00" emissiveIntensity={2.0} roughness={0.3} />
           </mesh>
