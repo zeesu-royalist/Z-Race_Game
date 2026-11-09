@@ -8,8 +8,15 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "threejs",
+    "react",
+    "webgl",
+    "racing-game",
+    "zeesu-royalist"
+  ],
+  "author": "Zeesu Royalist <rzeesu@gmail.com> (https://zeesu-royalist.vercel.app)",
+  "homepage": "https://zeesu-royalist.vercel.app",
   "license": "ISC",
   "dependencies": {
     "@react-three/drei": "^9.122.0",

@@ -257,10 +257,30 @@ export function ControlsOverlay() {
               </div>
             </div>
 
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ flexDirection: 'column', gap: '10px' }}>
               <button className="primary-btn" onClick={() => setIsHelpOpen(false)}>
                 GOT IT, LET'S RACE!
               </button>
+              <div style={{ fontSize: '11px', color: '#8fa0b5', textAlign: 'center', marginTop: '2px' }}>
+                Created with passion by{' '}
+                <a
+                  href="https://zeesu-royalist.vercel.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--primary-cyan)', fontWeight: 700, textDecoration: 'none' }}
+                >
+                  Zeesu Royalist
+                </a>{' '}
+                •{' '}
+                <a
+                  href="https://zeesu-royalist.vercel.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#00ff88', textDecoration: 'none' }}
+                >
+                  zeesu-royalist.vercel.app
+                </a>
+              </div>
             </div>
           </div>
         </div>

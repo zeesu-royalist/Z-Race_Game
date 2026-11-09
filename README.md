@@ -1,5 +1,9 @@
 # 🏎️ Z-Race — 3D City Car Racing Simulator
 
+<p align="center">
+  <img src="./public/banner.png" alt="Z-Race by Zeesu Royalist" width="450" />
+</p>
+
 A high-performance 3D car racing game built with **React**, **Three.js**, **React Three Fiber (R3F)**, **Drei**, and **Three-Mesh-BVH** physics, powered by your custom 3D city terrain (`terrain_retextured.glb`).
 
 ---
@@ -13,7 +17,7 @@ npm run dev
 ```
 
 Open your browser at:
-👉 **[http://localhost:5174/](http://localhost:5174/)**
+👉 **[http://localhost:5173/](http://localhost:5173/)**
 
 ---
 
@@ -83,6 +87,14 @@ A dedicated **GARAGE & 3D MODEL** manager is built into the game. Whenever you h
 - **Origin / Pivot**: Center of the chassis at ground level (between the 4 wheels).
 - **Scale**: Real-world meters (Car length ~4.2m - 4.6m, width ~1.9m - 2.0m, height ~1.2m).
 - **Material**: Name your car body material `body` or `paint` if you want the in-game color palette (Apex Red, Cyber Cyan, Midnight Black, etc.) to customize your paint finish.
+
+---
+
+## 👨‍💻 Creator & Developer
+
+- **Developer**: **Zeesu Royalist**
+- **Website & Portfolio**: [https://zeesu-royalist.vercel.app](https://zeesu-royalist.vercel.app)
+- **Project**: Z-Race — 3D Cyber City Racing Simulator
 
 ---
 

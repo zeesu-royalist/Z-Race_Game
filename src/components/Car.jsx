@@ -75,7 +75,9 @@ export function Car() {
     rpm: 900,
     isBraking: false,
     nitro: 100,
-    isNitroActive: false
+    isNitroActive: false,
+    nitroCooldown: 0,
+    nitroLocked: false
   });
 
   const math = useRef({
@@ -177,16 +179,25 @@ export function Car() {
     const s = state.current;
     const m = math.current;
 
-    // 1. NITRO BOOST LOGIC
+    // 1. NITRO BOOST LOGIC (Auto-accelerates even without pressing GAS)
+    if (s.nitro <= 0) s.nitroLocked = true;
+    else if (s.nitro >= 50) s.nitroLocked = false;
+
     let nitroMultiplier = 1.0;
-    if (inputState.nitro && s.nitro > 0 && inputState.forward) {
+    if (inputState.nitro && !s.nitroLocked && s.nitro > 0 && !inputState.backward) {
       nitroMultiplier = 1.65;
       s.isNitroActive = true;
       s.nitro = Math.max(0, s.nitro - dt * 25);
+      s.nitroCooldown = 2.0; // 2 sec cooldown before recharging begins
     } else {
       s.isNitroActive = false;
-      if (s.nitro < 100) s.nitro = Math.min(100, s.nitro + dt * 6);
+      if (s.nitroCooldown > 0) {
+        s.nitroCooldown -= dt;
+      } else if (s.nitro < 100) {
+        s.nitro = Math.min(100, s.nitro + dt * 3.5); // Slow recharge
+      }
     }
+    const isDrivingForward = inputState.forward || s.isNitroActive;
 
     // 2. STEERING DYNAMICS (Speed-sensitive)
     const speedKmH = Math.abs(s.speed * 3.6);
@@ -206,11 +217,17 @@ export function Car() {
     const raceCountdown = useGameStore.getState().raceCountdown;
     const isLockedByCountdown = raceCountdown !== null && raceCountdown > 0;
 
-    const maxForwardSpeed = (tuning.maxSpeed || 64) * nitroMultiplier;
+    const normalMaxSpeed = tuning.maxSpeed || 64;
+    const maxForwardSpeed = normalMaxSpeed * nitroMultiplier;
     const maxReverseSpeed = -15;
     const accelRate = (tuning.accelRate || 19) * nitroMultiplier;
     const brakeRate = 34;
     const naturalFriction = 3.6;
+
+    // When nitro is NOT active, bleed excess boost speed back to normal car top speed
+    if (!s.isNitroActive && s.speed > normalMaxSpeed) {
+      s.speed = Math.max(normalMaxSpeed, s.speed - 14.0 * dt);
+    }
 
     s.isBraking = false;
 
@@ -219,7 +236,7 @@ export function Car() {
       s.speed = 0;
       s.steerAngle = 0;
       s.rpm = inputState.forward ? Math.min(6200, s.rpm + 5000 * dt) : Math.max(900, s.rpm - 3500 * dt);
-    } else if (inputState.forward) {
+    } else if (isDrivingForward) {
       if (s.speed < 0) {
         s.speed += brakeRate * dt;
         s.isBraking = true;
@@ -456,7 +473,7 @@ export function Car() {
     } else {
       const gearMin = gear === 1 ? 0 : GEAR_MINS[gear];
       const normGearSpeed = Math.max(0, Math.min(1, (speedKmH - gearMin) / (gearMaxSpeed - gearMin)));
-      rpm = 900 + normGearSpeed * 6800 + (inputState.forward ? 300 : 0);
+      rpm = 900 + normGearSpeed * 6800 + (isDrivingForward ? 300 : 0);
     }
     s.rpm = Math.min(8000, Math.max(900, rpm));
     if (s.currentGear !== gear && s.currentGear !== 'R' && gear !== 'R' && gear > s.currentGear && speedKmH > 25) {
@@ -471,7 +488,7 @@ export function Car() {
     }
 
     // Sound Engine Update
-    soundManager.updateEngine(s.rpm, inputState.forward, speedKmH);
+    soundManager.updateEngine(s.rpm, isDrivingForward, speedKmH);
     soundManager.updateDrift(s.isDrifting, s.driftIntensity);
     soundManager.updateNitro(s.isNitroActive);
 

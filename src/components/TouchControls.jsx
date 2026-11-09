@@ -24,7 +24,8 @@ export function TouchControls() {
       }
       handleTouch(key, false, e);
     },
-    onPointerCancel: (e) => handleTouch(key, false, e)
+    onPointerCancel: (e) => handleTouch(key, false, e),
+    onContextMenu: (e) => e.preventDefault()
   });
 
   return (
@@ -32,10 +33,10 @@ export function TouchControls() {
       {/* Left side: Steering Controls */}
       <div className="touch-steering-group">
         <button type="button" className="touch-btn steer-btn" {...touchProps('left')} aria-label="Steer Left">
-          <ChevronLeft size={24} />
+          <ChevronLeft size={28} />
         </button>
         <button type="button" className="touch-btn steer-btn" {...touchProps('right')} aria-label="Steer Right">
-          <ChevronRight size={24} />
+          <ChevronRight size={28} />
         </button>
       </div>
 
@@ -43,22 +44,22 @@ export function TouchControls() {
       <div className="touch-pedals-group">
         <div className="touch-aux-row">
           <button type="button" className="touch-btn aux-btn handbrake-btn" {...touchProps('handbrake')} aria-label="Handbrake">
-            <Disc size={15} />
+            <Disc size={16} />
             <span>DRIFT</span>
           </button>
           <button type="button" className="touch-btn aux-btn boost-btn" {...touchProps('nitro')} aria-label="Nitro Boost">
-            <Zap size={15} />
+            <Zap size={16} />
             <span>NITRO</span>
           </button>
         </div>
 
         <div className="touch-drive-row">
           <button type="button" className="touch-btn pedal-btn brake-pedal" {...touchProps('backward')} aria-label="Brake or Reverse">
-            <ArrowDown size={20} />
+            <ArrowDown size={22} />
             <span>BRAKE</span>
           </button>
           <button type="button" className="touch-btn pedal-btn gas-pedal" {...touchProps('forward')} aria-label="Accelerate">
-            <ArrowUp size={22} />
+            <ArrowUp size={24} />
             <span>GAS</span>
           </button>
         </div>

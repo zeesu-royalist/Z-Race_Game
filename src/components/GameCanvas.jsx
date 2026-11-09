@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Sky, Html, Environment } from '@react-three/drei';
+import { Sky, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../store/gameStore';
 import { CityMap } from './CityMap';
@@ -10,17 +10,7 @@ import { CameraRig } from './CameraRig';
 import { RacingSystem } from './RacingSystem';
 import { TireSkidmarks } from './TireSkidmarks';
 
-function LoadingScreen() {
-  return (
-    <Html center>
-      <div className="loading-card">
-        <div className="loading-spinner"></div>
-        <div className="loading-title">LOADING 3D CITY</div>
-        <div className="loading-subtitle">Preparing optimized roads & supercars...</div>
-      </div>
-    </Html>
-  );
-}
+
 
 function EnvironmentLights() {
   const timeOfDay = useGameStore((s) => s.timeOfDay);
@@ -150,7 +140,7 @@ export function GameCanvas() {
       }}
       onCreated={handleCreated}
     >
-      <Suspense fallback={<LoadingScreen />}>
+      <Suspense fallback={null}>
         <EnvironmentLights />
         <CityMap />
         <TireSkidmarks />

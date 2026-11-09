@@ -1,10 +1,34 @@
 import React, { useEffect, useState } from 'react';
+import { useProgress } from '@react-three/drei';
 import { GameCanvas } from './components/GameCanvas';
 import { SpeedometerHUD } from './components/SpeedometerHUD';
 import { ControlsOverlay } from './components/ControlsOverlay';
 import { TouchControls } from './components/TouchControls';
 import { soundManager } from './utils/AudioSystem';
 import { useGameStore } from './store/gameStore';
+
+function LoadingOverlay() {
+  const { active, progress } = useProgress();
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (progress === 100 && !active) setReady(true);
+    const t = setTimeout(() => setReady(true), 3500);
+    return () => clearTimeout(t);
+  }, [progress, active]);
+
+  if (ready && !active) return null;
+
+  return (
+    <div className="game-loading-overlay">
+      <div className="loading-card">
+        <div className="loading-spinner" />
+        <div className="loading-title">CAR IS LOADING...</div>
+        <div className="loading-subtitle">{Math.round(progress)}%</div>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   if (typeof window !== 'undefined') {
@@ -73,6 +97,7 @@ export default function App() {
       <ControlsOverlay />
       <SpeedometerHUD />
       {isTouchDevice && <TouchControls />}
+      <LoadingOverlay />
     </div>
   );
 }
