@@ -68,6 +68,7 @@ export function Car() {
     verticalVelocity: 0,
     isGrounded: true,
     isDrifting: false,
+    driftTimer: 0,
     driftIntensity: 0,
     driftScore: 0,
     currentGear: 1,
@@ -124,7 +125,7 @@ export function Car() {
       const s = state.current;
       s.position.copy(SPAWN_POS);
       s.rotationY = SPAWN_ROT_Y;
-      s.pitch = s.roll = s.speed = s.steerAngle = s.angularVelocity = s.verticalVelocity = s.driftScore = 0;
+      s.pitch = s.roll = s.speed = s.steerAngle = s.angularVelocity = s.verticalVelocity = s.driftScore = s.driftTimer = 0;
       s.isDrifting = false;
       s.currentGear = 1;
       s.rpm = 900;
@@ -255,11 +256,16 @@ export function Car() {
     s.angularVelocity = THREE.MathUtils.lerp(s.angularVelocity, turnRate, 9.5 * dt);
     s.rotationY += s.angularVelocity * dt;
 
-    const turningSharp = Math.abs(s.steerAngle) > 0.18;
-    const fastEnough = speedKmH > 35;
-    s.isDrifting = ((inputState.handbrake && fastEnough) || (turningSharp && speedKmH > 65)) && s.isGrounded;
-    s.driftIntensity = s.isDrifting ? Math.min(1.0, (speedKmH / 100) * (inputState.handbrake ? 1.4 : 0.8)) : 0;
-    if (s.isDrifting) s.driftScore += Math.round(s.driftIntensity * 10);
+    // 4.1 SUSTAINED DRIFT CHECK (Prevents casual steering from flashing drift UI)
+    const canDrift = s.isGrounded && speedKmH > 38 && (inputState.handbrake || (Math.abs(s.steerAngle) > 0.24 && speedKmH > 60));
+    s.driftTimer = canDrift ? s.driftTimer + dt : Math.max(0, s.driftTimer - dt * 2.5);
+    s.isDrifting = s.driftTimer > (inputState.handbrake ? 0.12 : 0.45);
+    s.driftIntensity = s.isDrifting ? Math.min(1.0, (speedKmH / 100) * (inputState.handbrake ? 1.4 : 0.9)) : 0;
+    if (s.isDrifting) {
+      s.driftScore += Math.round(s.driftIntensity * 10);
+    } else if (s.driftTimer === 0) {
+      s.driftScore = 0;
+    }
 
     // 5. POSITION DISPLACEMENT (Zero GC)
     m.forwardVec.set(Math.sin(s.rotationY), 0, Math.cos(s.rotationY)).normalize();

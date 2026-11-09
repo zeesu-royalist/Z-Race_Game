@@ -248,113 +248,152 @@ html, body, #root {
   z-index: 40;
 }
 
-.race-top-card {
-  position: absolute;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
-  border: 1px solid rgba(0, 240, 255, 0.5);
-  box-shadow: 0 6px 25px rgba(0, 240, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  border-radius: 30px;
-  padding: 8px 24px;
+/* ===== CYBER RACE TELEMETRY (PLACED UNDER SPEEDOMETER) ===== */
+.cyber-race-telemetry {
+  margin-top: 5px;
+  width: 100%;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
   backdrop-filter: blur(5px) saturate(140%);
   -webkit-backdrop-filter: blur(5px) saturate(140%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
 }
 
-.race-stat-col {
+.race-sub-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.race-sub-row-secondary {
+  padding-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.race-sub-col {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.race-sub-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #00f0ff;
+  text-shadow: 0 0 6px rgba(0, 240, 255, 0.7);
+  line-height: 1;
+}
+
+.race-pos-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.85);
+  line-height: 1;
+}
+
+.race-total-rank {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  margin-left: 1px;
+}
+
+.race-time-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+  line-height: 1;
+}
+
+.race-gate-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1;
+}
+
+.race-best-val {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+  line-height: 1;
+}
+
+.race-sub-divider {
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Minimal Race Finish Overlay (Zero background, 3.5s auto-fade) */
+.race-finish-banner {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%) skewX(-6deg);
+  text-align: center;
+  pointer-events: none;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-.race-stat-label {
-  display: flex;
-  align-items: center;
   gap: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: #8fa0b5;
+  animation: finishAnim 3.5s forwards;
 }
 
-.race-stat-value {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.timer-glow {
-  color: var(--primary-cyan);
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
-}
-
-.best-glow {
-  color: #ffd700;
-}
-
-.cp-cur {
-  color: var(--primary-cyan);
-  font-size: 20px;
-}
-
-.race-stat-divider {
-  width: 1px;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.15);
-}
-
-/* Race Finish Banner */
-.race-finish-banner {
-  position: absolute;
-  top: 35%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(8, 14, 24, 0.92);
-  border: 2px solid var(--primary-gold);
-  box-shadow: 0 0 45px rgba(255, 170, 0, 0.45);
-  border-radius: 20px;
-  padding: 24px 44px;
-  text-align: center;
-  backdrop-filter: blur(16px);
-  animation: bannerPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes bannerPop {
-  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
-  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+@keyframes finishAnim {
+  0% { opacity: 0; transform: translate(-50%, -40%) scale(0.8) skewX(-6deg); }
+  12%, 80% { opacity: 1; transform: translate(-50%, -50%) scale(1) skewX(-6deg); }
+  100% { opacity: 0; transform: translate(-50%, -60%) scale(1.05) skewX(-6deg); }
 }
 
 .banner-badge {
-  background: var(--primary-gold);
-  color: #000;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 11px;
-  font-weight: 900;
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 12px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
   letter-spacing: 2px;
-  margin-bottom: 8px;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
 }
 
 .banner-title {
   font-family: 'Orbitron', sans-serif;
-  font-size: 26px;
+  font-size: 40px;
   font-weight: 900;
-  color: #ffffff;
-  letter-spacing: 2px;
-  margin-bottom: 6px;
+  letter-spacing: 3px;
+  color: #00f0ff;
+  text-shadow: 0 0 25px rgba(0, 240, 255, 0.85), 0 2px 10px rgba(0, 0, 0, 0.9);
+}
+
+.banner-title.gold {
+  color: #ffd700;
+  text-shadow: 0 0 25px rgba(255, 215, 0, 0.85), 0 2px 10px rgba(0, 0, 0, 0.9);
 }
 
 .banner-time {
+  font-family: 'Orbitron', sans-serif;
   font-size: 18px;
-  color: var(--primary-cyan);
-  font-weight: 700;
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
 }
 
 /* Race Countdown Overlay */
@@ -393,40 +432,47 @@ html, body, #root {
   100% { transform: scale(0.8); opacity: 0; }
 }
 
-/* Drift Popup */
+/* Drift Score Pill (Under Speedometer / Race Telemetry) */
 .drift-score-popup {
-  position: absolute;
-  bottom: 240px;
-  right: 50px;
+  margin-top: 4px;
+  width: 100%;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  animation: driftGlow 0.3s ease;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, rgba(255, 140, 0, 0.22), rgba(255, 60, 0, 0.08));
+  border: 1px solid rgba(255, 140, 0, 0.45);
+  border-radius: 8px;
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  box-shadow: 0 3px 12px rgba(255, 100, 0, 0.25);
+  box-sizing: border-box;
+  animation: driftGlow 0.25s ease;
 }
 
 @keyframes driftGlow {
-  0% { transform: scale(0.85); opacity: 0; }
+  0% { transform: scale(0.92); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
 
 .drift-title {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 18px;
+  gap: 4px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
   font-weight: 900;
   color: #ffaa00;
-  letter-spacing: 2px;
-  text-shadow: 0 0 15px rgba(255, 170, 0, 0.7);
+  letter-spacing: 1.5px;
+  text-shadow: 0 0 8px rgba(255, 170, 0, 0.8);
 }
 
 .drift-score {
   font-family: 'Orbitron', sans-serif;
-  font-size: 32px;
+  font-size: 16px;
   font-weight: 900;
   color: #ffffff;
-  text-shadow: 0 0 18px rgba(255, 255, 255, 0.8);
+  text-shadow: 0 0 10px rgba(255, 200, 0, 0.85);
 }
 
 /* ===== CYBER-BLADE STEALTH RACING HUD (TOP-RIGHT, ULTRA-COMPACT, MINIMAL) ===== */
@@ -437,7 +483,7 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: 175px;
+  width: 185px;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
@@ -539,64 +585,34 @@ html, body, #root {
   width: 100%;
 }
 
-.cyber-led-array {
-  display: flex;
-  gap: 2.5px;
+.cyber-rpm-track {
   flex: 1;
-  height: 5px;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 1.5px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.cyber-led {
-  flex: 1;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 1px;
+  overflow: hidden;
   transform: skewX(-14deg);
-  transition: background 0.04s, box-shadow 0.04s;
 }
 
-.cyber-led.seg-cyan.active {
-  background: #00f0ff;
-  box-shadow: 0 0 8px #00f0ff;
-}
-
-.cyber-led.seg-amber.active {
-  background: #ffaa00;
-  box-shadow: 0 0 8px #ffaa00;
-}
-
-.cyber-led.seg-red.active {
-  background: #ff1e42;
-  box-shadow: 0 0 10px #ff1e42;
-}
-
-.redline-strobe .cyber-led.seg-red.active {
-  animation: redlinePulse 0.1s infinite alternate;
-}
-
-@keyframes redlinePulse {
-  0% { opacity: 0.8; filter: drop-shadow(0 0 3px #ff1e42); }
-  100% { opacity: 1.0; filter: drop-shadow(0 0 10px #ff1e42); }
+.cyber-rpm-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f0ff 0%, #ffaa00 50%, #ff1e42 85%, #ff0033 100%);
+  box-shadow: 0 0 8px rgba(255, 30, 66, 0.85);
+  border-radius: 1px;
+  will-change: width;
+  transition: width 0.04s linear;
 }
 
 .cyber-rpm-num {
   font-family: 'Orbitron', sans-serif;
   font-size: 9px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.85);
+  color: #ffffff;
   min-width: 28px;
   text-align: right;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-}
-
-.cyber-rpm-num.redline-text {
-  color: #ff1e42 !important;
-  text-shadow: 0 0 8px #ff1e42 !important;
-  animation: blink 0.15s infinite;
+  transition: color 0.08s ease, text-shadow 0.08s ease;
 }
 
 /* Micro Nitro Boost Rail */
