@@ -9,6 +9,7 @@ import { checkCarCollision, RIVAL_HALF_LENGTH, RIVAL_HALF_WIDTH } from '../utils
 const TARGET_CAR_LENGTH = 3.9;
 const SLS_RAW_LENGTH = 4.85;
 const SCALE_FACTOR = TARGET_CAR_LENGTH / SLS_RAW_LENGTH; // ~0.8041
+const RIVAL_GROUND_Y = 0.02; // Aligns tires flush with road asphalt surface
 
 // Track Waypoints defining full-city circuit (2.05 km)
 export const TRACK_WAYPOINTS = [
@@ -148,7 +149,7 @@ RIVAL_CARS_CONFIG.forEach((cfg) => {
   const pt = raceTrackCurve.getPointAt(t);
   const tan = raceTrackCurve.getTangentAt(t).normalize();
   const n = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
-  cfg.startPos = [pt.x + n.x * cfg.initialLane, 0.30, pt.z + n.z * cfg.initialLane];
+  cfg.startPos = [pt.x + n.x * cfg.initialLane, RIVAL_GROUND_Y, pt.z + n.z * cfg.initialLane];
   cfg.startRotY = Math.atan2(tan.x, tan.z);
 });
 
@@ -282,7 +283,7 @@ export function RivalCars() {
       if (!Number.isFinite(sim.pushZ)) sim.pushZ = 0;
 
       if (isCountingDown) {
-        sim.y = 0.30 + Math.sin(performance.now() * 0.035 + idx * 1.5) * 0.003;
+        sim.y = RIVAL_GROUND_Y + Math.sin(performance.now() * 0.035 + idx * 1.5) * 0.003;
         sim.speed = 0;
       } else if (canRace && !sim.finished) {
         // Accelerate along track
@@ -371,7 +372,7 @@ export function RivalCars() {
         sim.pushZ = THREE.MathUtils.clamp(THREE.MathUtils.lerp(sim.pushZ, 0, 6.0 * dt), -1.5, 1.5);
 
         sim.x = tempPoint.x + tempNormal.x * sim.laneOffset + sim.pushX;
-        sim.y = 0.30;
+        sim.y = RIVAL_GROUND_Y;
         sim.z = tempPoint.z + tempNormal.z * sim.laneOffset + sim.pushZ;
 
         // C1 continuous heading angle interpolation (Zero angular snapping)
@@ -392,7 +393,7 @@ export function RivalCars() {
           sim.pushX = THREE.MathUtils.clamp(THREE.MathUtils.lerp(sim.pushX, 0, 6.0 * dt), -1.5, 1.5);
           sim.pushZ = THREE.MathUtils.clamp(THREE.MathUtils.lerp(sim.pushZ, 0, 6.0 * dt), -1.5, 1.5);
           sim.x = tempPoint.x + tempNormal.x * sim.laneOffset + sim.pushX;
-          sim.y = 0.30;
+          sim.y = RIVAL_GROUND_Y;
           sim.z = tempPoint.z + tempNormal.z * sim.laneOffset + sim.pushZ;
 
           const targetRotY = Math.atan2(tempTangent.x, tempTangent.z);
