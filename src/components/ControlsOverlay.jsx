@@ -35,9 +35,9 @@ export function ControlsOverlay() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   const getTimeIcon = () => {
-    if (timeOfDay === 'day') return <Sun size={17} color="#ffbb00" />;
-    if (timeOfDay === 'sunset') return <Sunset size={17} color="#ff7733" />;
-    return <Moon size={17} color="#88aaff" />;
+    if (timeOfDay === 'day') return <Sun size={18} color="#ffbb00" />;
+    if (timeOfDay === 'sunset') return <Sunset size={18} color="#ff7733" />;
+    return <Moon size={18} color="#88aaff" />;
   };
 
   return (
@@ -45,9 +45,29 @@ export function ControlsOverlay() {
       <header className="game-header">
         {/* Brand / Title */}
         <div className="brand-group">
-          <span className="brand-badge">PRO EDITION</span>
-          <h1 className="brand-title">Z-RACE</h1>
-          <span className="brand-sub">3D CITY RACER</span>
+          <span
+            className="brand-badge"
+            onClick={() => window.location.reload()}
+            title="Reload Game"
+          >
+            Zr
+          </span>
+          <h1
+            className="brand-title"
+            onClick={() => window.location.reload()}
+            title="Reload Game"
+          >
+            Z-RACE
+          </h1>
+          <a
+            href="https://zeesu-royalist.vercel.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="brand-sub"
+            title="Visit Zeesu Royalist"
+          >
+            Zeesu Royalist
+          </a>
         </div>
 
         {/* Center Quick Action Buttons */}
@@ -77,24 +97,22 @@ export function ControlsOverlay() {
             <span>{carName.toUpperCase()}</span>
           </button>
 
-          {/* Camera View Switcher */}
+          {/* Camera View Switcher (Icon Only) */}
           <button
-            className="action-pill"
+            className="icon-action-btn"
             onClick={cycleCameraMode}
-            title="Switch Camera (Press C)"
+            title={`Switch Camera: ${cameraMode.toUpperCase()} (Press C)`}
           >
-            <Camera size={16} />
-            <span>CAM: {cameraMode.toUpperCase()}</span>
+            <Camera size={18} />
           </button>
 
-          {/* Time of Day Switcher */}
+          {/* Time of Day / Weather Switcher (Icon Only) */}
           <button
-            className="action-pill"
+            className="icon-action-btn"
             onClick={cycleTimeOfDay}
-            title="Toggle Day/Sunset/Night (Press T)"
+            title={`Toggle Weather/Time: ${timeOfDay.toUpperCase()} (Press T)`}
           >
             {getTimeIcon()}
-            <span>{timeOfDay.toUpperCase()}</span>
           </button>
 
           {/* Sound Toggle */}
