@@ -30,6 +30,7 @@ export function ControlsOverlay() {
   const startRace = useGameStore((s) => s.startRace);
   const stopRace = useGameStore((s) => s.stopRace);
   const carName = useGameStore((s) => s.carName);
+  const carBrand = useGameStore((s) => s.carBrand);
 
   const [isGarageOpen, setIsGarageOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -91,10 +92,10 @@ export function ControlsOverlay() {
           <button
             className="action-pill car-selector-pill"
             onClick={() => setIsGarageOpen(true)}
-            title="Switch Car / Garage (Press to change car)"
+            title={`Switch Car / Garage (${carName})`}
           >
             <Car size={16} />
-            <span>{carName.toUpperCase()}</span>
+            <span>{(carBrand || 'TOYOTA').toUpperCase()}</span>
           </button>
 
           {/* Camera View Switcher (Icon Only) */}

@@ -136,6 +136,7 @@ export function GameCanvas() {
 
   return (
     <Canvas
+      resize={{ offsetSize: true }}
       shadows={{ type: THREE.BasicShadowMap }}
       dpr={1}
       camera={{ position: [10, 5, -20], fov: 62, near: 0.2, far: 500 }}

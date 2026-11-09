@@ -24,12 +24,25 @@ export default function App() {
       });
     }
 
-    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    const updateTouch = () => {
+      setIsTouchDevice(
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        window.matchMedia('(pointer: coarse)').matches ||
+        window.innerWidth <= 1024
+      );
+    };
+    updateTouch();
+    window.addEventListener('resize', updateTouch);
+    window.addEventListener('orientationchange', updateTouch);
     soundManager.init();
 
     const handleUserInteraction = () => {
       soundManager.init();
       soundManager.resume();
+      if (screen.orientation?.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
+      }
     };
 
     const events = ['click', 'pointerdown', 'keydown', 'touchstart'];
@@ -47,6 +60,8 @@ export default function App() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      window.removeEventListener('resize', updateTouch);
+      window.removeEventListener('orientationchange', updateTouch);
       events.forEach((evt) => window.removeEventListener(evt, handleUserInteraction));
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };

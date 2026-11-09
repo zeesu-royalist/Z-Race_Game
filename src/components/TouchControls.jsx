@@ -12,9 +12,18 @@ export function TouchControls() {
   }, []);
 
   const touchProps = (key) => ({
-    onPointerDown: (e) => handleTouch(key, true, e),
-    onPointerUp: (e) => handleTouch(key, false, e),
-    onPointerLeave: (e) => handleTouch(key, false, e),
+    onPointerDown: (e) => {
+      if (e.target && e.target.setPointerCapture) {
+        try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      handleTouch(key, true, e);
+    },
+    onPointerUp: (e) => {
+      if (e.target && e.target.releasePointerCapture) {
+        try { e.target.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+      handleTouch(key, false, e);
+    },
     onPointerCancel: (e) => handleTouch(key, false, e)
   });
 
@@ -23,10 +32,10 @@ export function TouchControls() {
       {/* Left side: Steering Controls */}
       <div className="touch-steering-group">
         <button type="button" className="touch-btn steer-btn" {...touchProps('left')} aria-label="Steer Left">
-          <ChevronLeft size={36} />
+          <ChevronLeft size={24} />
         </button>
         <button type="button" className="touch-btn steer-btn" {...touchProps('right')} aria-label="Steer Right">
-          <ChevronRight size={36} />
+          <ChevronRight size={24} />
         </button>
       </div>
 
@@ -34,22 +43,22 @@ export function TouchControls() {
       <div className="touch-pedals-group">
         <div className="touch-aux-row">
           <button type="button" className="touch-btn aux-btn handbrake-btn" {...touchProps('handbrake')} aria-label="Handbrake">
-            <Disc size={22} />
+            <Disc size={15} />
             <span>DRIFT</span>
           </button>
           <button type="button" className="touch-btn aux-btn boost-btn" {...touchProps('nitro')} aria-label="Nitro Boost">
-            <Zap size={22} />
+            <Zap size={15} />
             <span>NITRO</span>
           </button>
         </div>
 
         <div className="touch-drive-row">
           <button type="button" className="touch-btn pedal-btn brake-pedal" {...touchProps('backward')} aria-label="Brake or Reverse">
-            <ArrowDown size={32} />
+            <ArrowDown size={20} />
             <span>BRAKE</span>
           </button>
           <button type="button" className="touch-btn pedal-btn gas-pedal" {...touchProps('forward')} aria-label="Accelerate">
-            <ArrowUp size={36} />
+            <ArrowUp size={22} />
             <span>GAS</span>
           </button>
         </div>

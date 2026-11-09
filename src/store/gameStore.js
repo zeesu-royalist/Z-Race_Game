@@ -17,6 +17,7 @@ export const useGameStore = create((set, get) => ({
   currentCarId: defaultCar.id,
   carModelPath: defaultCar.modelPath,
   carName: defaultCar.name,
+  carBrand: defaultCar.brand || 'Toyota',
   carTuning: defaultCar.tuning,
 
   // Car Telemetry
@@ -70,6 +71,7 @@ export const useGameStore = create((set, get) => ({
       currentCarId: car.id,
       carModelPath: car.modelPath,
       carName: car.name,
+      carBrand: car.brand || 'HYPERCAR',
       carTuning: car.tuning || defaultCar.tuning,
       speed: 0,
       rpm: 900
@@ -90,6 +92,7 @@ export const useGameStore = create((set, get) => ({
       currentCarId: activeCar.id,
       carModelPath: activeCar.modelPath,
       carName: activeCar.name,
+      carBrand: activeCar.brand || 'HYPERCAR',
       carTuning: activeCar.tuning || defaultCar.tuning
     });
   },

@@ -43,18 +43,6 @@ export function CarCustomizerModal({ isOpen, onClose }) {
 
         {/* Modal Body */}
         <div className="modal-body">
-          {/* AUTO-DISCOVERY HINT BANNER */}
-          <div className="auto-sync-banner">
-            <div className="auto-sync-icon-col">
-              <Sparkles size={20} className="text-cyan" />
-            </div>
-            <div className="auto-sync-text">
-              <span className="auto-sync-title">Real-Time Auto-Discovery Active</span>
-              <p>
-                Aap <code>public/cars-models/</code> folder me koi bhi <code>.glb</code> file dalein — vo bina page refresh kiye khud-b-khud yahan add ho jayegi aur drive karne ke liye available hogi!
-              </p>
-            </div>
-          </div>
 
           {/* CARS SHOWCASE GRID */}
           <div className="car-selection-grid">

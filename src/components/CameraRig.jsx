@@ -68,8 +68,11 @@ export function CameraRig() {
       if (orb.activeTouches.has(e.pointerId)) orb.activeTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
       if (orb.activeTouches.size === 1 && orb.isDragging) {
-        orb.yaw -= (e.clientX - orb.prevX) * 0.0055;
-        orb.pitch = THREE.MathUtils.clamp(orb.pitch + (e.clientY - orb.prevY) * 0.0045, -0.45, 0.95);
+        const isRotated = window.matchMedia('(orientation: portrait) and (max-width: 1024px)').matches;
+        const dx = isRotated ? (e.clientY - orb.prevY) : (e.clientX - orb.prevX);
+        const dy = isRotated ? -(e.clientX - orb.prevX) : (e.clientY - orb.prevY);
+        orb.yaw -= dx * 0.0055;
+        orb.pitch = THREE.MathUtils.clamp(orb.pitch + dy * 0.0045, -0.45, 0.95);
         orb.prevX = e.clientX;
         orb.prevY = e.clientY;
         orb.lastInteractionTime = performance.now();
