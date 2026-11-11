@@ -73,6 +73,14 @@ export function ControlsOverlay() {
 
         {/* Center Quick Action Buttons */}
         <div className="header-actions">
+
+          <a
+            href="https://z-race-2.vercel.app"
+            className="action-pill race-idle-pill"
+          >
+            V2
+          </a>
+
           {/* Race Mode Toggle */}
           <button
             className={`action-pill ${raceActive ? 'race-active-pill' : 'race-idle-pill'}`}
